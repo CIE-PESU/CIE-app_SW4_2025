@@ -3,6 +3,25 @@ import { hash } from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
+function generateStudentId({
+  campus,
+  programType,
+  startYear,
+  courseCode,
+  rollNumber
+}: {
+  campus: 1 | 2;
+  programType: 'UG' | 'PG';
+  startYear: number;
+  courseCode: string;
+  rollNumber: number;
+}): string {
+  const yy = startYear.toString().slice(-2);
+  const nnn = rollNumber.toString().padStart(3, '0');
+  return `PES${campus}${programType}${yy}${courseCode}${nnn}`;
+}
+
+
 async function main() {
   // Clear existing data (preserve users, admins, faculty, students)
   await prisma.componentRequest.deleteMany();
@@ -11,7 +30,7 @@ async function main() {
   await prisma.domainCoordinator.deleteMany();
   await prisma.project.deleteMany();
   await prisma.studentAttendance.deleteMany();
-  await prisma.attendanceRecord.deleteMany();
+
   await prisma.classSchedule.deleteMany();
   await prisma.enrollment.deleteMany();
   await prisma.courseUnit.deleteMany();
@@ -53,6 +72,8 @@ async function main() {
 
   // Create users and their respective role records
   const createdUsers: Record<string, any> = {};
+  let studentCounter = 1; // Counter for roll numbers
+  
   for (const userInfo of userData) {
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
@@ -104,7 +125,29 @@ async function main() {
         });
         createdUsers[userInfo.email] = user;
       } else if (userInfo.role === 'STUDENT') {
-        const studentId = `STU${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+        // Decide campus (1 or 2)
+        const campus = Math.random() < 0.5 ? 1 : 2;
+
+        // For trial purposes, assume all are UG students
+        const programType = 'UG';
+
+        // Assume they started in 2024 (you can make this dynamic later)
+        const startYear = 2024;
+
+        // Default to CS course code (you can make this varied later)
+        const courseCode = 'CS';
+
+        // Use counter for roll number
+        const rollNumber = studentCounter++;
+
+        const studentId = generateStudentId({
+          campus,
+          programType,
+          startYear,
+          courseCode,
+          rollNumber
+        });
+
         const user = await prisma.user.create({
           data: {
             email: userInfo.email,
@@ -118,7 +161,7 @@ async function main() {
                 program: 'BTech CSE',
                 year: '2024',
                 section: 'A',
-                gpa: 7.5 + Math.random() * 2.5, // Random GPA between 7.5 and 10
+                gpa: 7.5 + Math.random() * 2.5,
               },
             },
           },
@@ -131,8 +174,6 @@ async function main() {
     }
   }
 
-  // Create domains
-  console.log('\n🏭 Creating domains...');
   const labDomain = await prisma.domain.create({
     data: {
       name: 'Lab Components',
@@ -147,34 +188,37 @@ async function main() {
     }
   });
 
+  const platformMain = await prisma.domain.create({
+    data: {
+      name: 'Platform Manager',
+      description: 'Domain for managing platform-wide insights and configurations',
+    }
+  });
+  const developer = await prisma.domain.create({
+    data: {
+      name: 'Developer',
+      description: 'Domain for managing development tasks and projects',
+    }
+  });
+
   // Assign domain coordinators
-  console.log('\n👨‍💼 Assigning domain coordinators...');
-  const madhukharFaculty = createdUsers['cieoffice@pes.edu']?.faculty;
-  const sathyaFaculty = createdUsers['sathya.prasad@pes.edu']?.faculty;
-  const tarunFaculty = createdUsers['tarunrama@pes.edu']?.faculty;
-  const adminUser = createdUsers['cie.admin@pes.edu'];
+  await prisma.domainCoordinator.create({
+    data: {
+      domain_id: labDomain.id,
+      faculty_id: createdUsers['cieoffice@pes.edu'].faculty?.id,
+      assigned_by: createdUsers['cie.admin@pes.edu'].id,
+      assigned_at: new Date(),
+    }
+  });
 
-  if (madhukharFaculty) {
-    // Madhukar as Lab Components coordinator
-    await prisma.domainCoordinator.create({
-      data: {
-        domain_id: labDomain.id,
-        faculty_id: madhukharFaculty.id,
-        assigned_by: adminUser.id,
-      }
-    });
-  }
-
-  if (sathyaFaculty) {
-    // Sathya as Library coordinator
-    await prisma.domainCoordinator.create({
-      data: {
-        domain_id: libraryDomain.id,
-        faculty_id: sathyaFaculty.id,
-        assigned_by: adminUser.id,
-      }
-    });
-  }
+  await prisma.domainCoordinator.create({
+    data: {
+      domain_id: libraryDomain.id,
+      faculty_id: createdUsers['sathya.prasad@pes.edu'].faculty?.id,
+      assigned_by: createdUsers['cie.admin@pes.edu'].id,
+      assigned_at: new Date(),
+    }
+  });
 
   // Count users to confirm creation
   const userCount = await prisma.user.count();
@@ -211,8 +255,8 @@ async function main() {
       course_start_date: new Date("2025-06-26T00:00:00.000Z"),
       course_end_date: new Date("2025-08-27T00:00:00.000Z"),
       course_enrollments: [],
-      created_by: adminUser.id,
-      modified_by: adminUser.id,
+      created_by: createdUsers['cie.admin@pes.edu'].id,
+      modified_by: createdUsers['cie.admin@pes.edu'].id,
     }
   });
 
@@ -220,11 +264,11 @@ async function main() {
     data: {
       course_name: "Internet of Things",
       course_description: "Comprehensive study of IoT systems, sensor networks, and smart device integration for real-world applications.",
-      course_code: "CS102", 
+      course_code: "CS102",
       course_start_date: new Date("2025-07-01T00:00:00.000Z"),
       course_end_date: new Date("2025-09-01T00:00:00.000Z"),
       course_enrollments: [],
-      created_by: adminUser.id,
+      created_by: createdUsers['cie.admin@pes.edu'].id,
       modified_by: null,
     }
   });
@@ -239,7 +283,7 @@ async function main() {
       unit_description: "Filters\nHistograms\nThresholding",
       assignment_count: 10,
       hours_per_unit: 10,
-      created_by: adminUser.id,
+      created_by: createdUsers['cie.admin@pes.edu'].id,
       modified_by: null,
     }
   });
@@ -251,7 +295,94 @@ async function main() {
       unit_description: "SIFT\nSURF\nORB",
       assignment_count: 3,
       hours_per_unit: 12,
-      created_by: adminUser.id,
+      created_by: createdUsers['cie.admin@pes.edu'].id,
+      modified_by: null,
+    }
+  });
+
+  // Create locations first since components reference them
+  console.log('\n🏢 Creating locations...');
+  const electronicsLab = await prisma.location.create({
+    data: {
+      name: "Electronics Lab",
+      capacity: 30,
+      description: "Fully equipped electronics laboratory with workbenches, oscilloscopes, and component storage",
+      is_available: true,
+      building: "CS Block",
+      floor: "3",
+      room_number: "301",
+      wing: "A",
+      images: ["/location-images/lab1.jpeg"],
+      location_type: "LAB",
+      created_by: createdUsers['cie.admin@pes.edu'].id,
+      modified_by: null,
+    }
+  });
+
+  const boardRoom = await prisma.location.create({
+    data: {
+      name: "Board Room",
+      capacity: 15,
+      description: "A formal meeting space equipped for executive discussions, decision-making, and strategic planning sessions",
+      is_available: true,
+      building: "BE Block",
+      floor: "12",
+      room_number: "1504",
+      wing: null,
+      images: ["/location-images/boardroom1.jpeg", "/location-images/boardroom2.jpeg"],
+      location_type: "CABIN",
+      created_by: createdUsers['cie.admin@pes.edu'].id,
+      modified_by: createdUsers['cie.admin@pes.edu'].id,
+    }
+  });
+
+  const computerLab = await prisma.location.create({
+    data: {
+      name: "Computer Lab A",
+      capacity: 25,
+      description: "Computer laboratory with workstations and development tools",
+      is_available: true,
+      building: "CS Block",
+      floor: "2",
+      room_number: "201",
+      wing: "A",
+      images: ["/location-images/lab2.jpeg"],
+      location_type: "LAB",
+      created_by: createdUsers['cie.admin@pes.edu'].id,
+      modified_by: null,
+    }
+  });
+
+  const roboticsLab = await prisma.location.create({
+    data: {
+      name: "Robotics Lab",
+      capacity: 20,
+      description: "Robotics and automation laboratory with specialized equipment",
+      is_available: true,
+      building: "ME Block",
+      floor: "1",
+      room_number: "101",
+      wing: "B",
+      images: ["/location-images/lab3.jpeg"],
+      location_type: "LAB",
+      created_by: createdUsers['cie.admin@pes.edu'].id,
+      modified_by: null,
+    }
+  });
+
+  const storageRoom = await prisma.location.create({
+    data: {
+      name: "Storage Room",
+      capacity: 0,
+      description: "Storage facility for components and equipment",
+      is_available: true,
+      building: "CS Block",
+      floor: "1",
+      room_number: "105",
+      wing: "A",
+      images: [],
+      location_type: "WAREHOUSE",
+      created_by: createdUsers['cie.admin@pes.edu'].id,
       modified_by: null,
     }
   });
@@ -275,9 +406,9 @@ async function main() {
       purchased_from: "amazon",
       purchase_currency: "INR",
       purchase_date: new Date("2025-06-10T00:00:00.000Z"),
-      created_by: "Admin",
-      modified_by: "Admin",
-      domain_id: labDomain.id, // Assign to Lab Components domain
+      created_by: createdUsers['cie.admin@pes.edu'].id,
+      modified_by: createdUsers['cie.admin@pes.edu'].id,
+      domain_id: labDomain.id,
     }
   });
 
@@ -289,7 +420,7 @@ async function main() {
       component_quantity: 8,
       component_tag_id: "ESP8266",
       component_category: "IoT Module",
-      component_location: "Storage ROOM",
+      component_location: storageRoom.name,
       image_path: "lab-images",
       front_image_id: "nodemcu-front.jpg",
       back_image_id: "nodemcu-back.jpg",
@@ -298,9 +429,9 @@ async function main() {
       purchased_from: "Flipcart",
       purchase_currency: "INR",
       purchase_date: new Date("2025-06-06T00:00:00.000Z"),
-      created_by: "Admin",
+      created_by: createdUsers['cie.admin@pes.edu'].id,
       modified_by: null,
-      domain_id: labDomain.id, // Assign to Lab Components domain
+      domain_id: labDomain.id,
     }
   });
 
@@ -312,7 +443,7 @@ async function main() {
       component_quantity: 15,
       component_tag_id: "142RW",
       component_category: "Display",
-      component_location: "LAB C",
+      component_location: computerLab.name,
       image_path: "lab-images",
       front_image_id: "lcd16x2-front.jpg",
       back_image_id: "lcd16x2-back.jpg",
@@ -321,9 +452,9 @@ async function main() {
       purchased_from: "amazon",
       purchase_currency: "INR",
       purchase_date: new Date("2025-06-19T00:00:00.000Z"),
-      created_by: "Admin",
+      created_by: createdUsers['cie.admin@pes.edu'].id,
       modified_by: null,
-      domain_id: labDomain.id, // Assign to Lab Components domain
+      domain_id: labDomain.id,
     }
   });
 
@@ -336,7 +467,7 @@ async function main() {
       component_quantity: 20,
       component_tag_id: "BB400",
       component_category: "Prototyping",
-      component_location: "LAB C",
+      component_location: computerLab.name,
       image_path: "lab-images",
       front_image_id: "breadboard400-front.jpg",
       back_image_id: "breadboard400-back.jpg",
@@ -345,7 +476,7 @@ async function main() {
       purchased_from: "amazon",
       purchase_currency: "INR",
       purchase_date: new Date("2025-06-20T00:00:00.000Z"),
-      created_by: "Admin",
+      created_by: createdUsers['cie.admin@pes.edu'].id,
       modified_by: null,
       domain_id: labDomain.id,
     }
@@ -359,7 +490,7 @@ async function main() {
       component_quantity: 12,
       component_tag_id: "SRV90",
       component_category: "Actuator",
-      component_location: "Storage ROOM",
+      component_location: storageRoom.name,
       image_path: "lab-images",
       front_image_id: "servo-front.jpg",
       back_image_id: "servo-back.jpg",
@@ -368,7 +499,7 @@ async function main() {
       purchased_from: "robotics-india",
       purchase_currency: "INR",
       purchase_date: new Date("2025-06-21T00:00:00.000Z"),
-      created_by: "Admin",
+      created_by: createdUsers['cie.admin@pes.edu'].id,
       modified_by: null,
       domain_id: labDomain.id,
     }
@@ -394,101 +525,12 @@ async function main() {
       purchased_from: "Amazon",
       purchase_currency: "INR",
       purchase_date: new Date("2025-06-15T00:00:00.000Z"),
-      created_by: "Admin",
+      created_by: createdUsers['cie.admin@pes.edu'].id,
       modified_by: null,
       domain_id: libraryDomain.id,
-      faculty_id: sathyaFaculty?.id,
+      faculty_id: createdUsers['sathya.prasad@pes.edu'].faculty?.id, // Changed to use faculty.id
     }
   });
-
-  // Create locations
-  console.log('\n🏢 Creating locations...');
-  const boardRoom = await prisma.location.create({
-    data: {
-      name: "Board Room",
-      capacity: 15,
-      description: "A formal meeting space equipped for executive discussions, decision-making, and strategic planning sessions",
-      is_available: true,
-      building: "BE Block",
-      floor: "12",
-      room_number: "1504",
-      wing: null,
-      images: ["/location-images/boardroom1.jpeg", "/location-images/boardroom2.jpeg"],
-      location_type: "CABIN",
-      created_by: adminUser.id,
-      modified_by: adminUser.id,
-    }
-  });
-
-  const electronicsLab = await prisma.location.create({
-    data: {
-      name: "Electronics Lab",
-      capacity: 30,
-      description: "Fully equipped electronics laboratory with workbenches, oscilloscopes, and component storage",
-      is_available: true,
-      building: "CS Block",
-      floor: "3",
-      room_number: "301",
-      wing: "A",
-      images: ["/location-images/lab1.jpeg"],
-      location_type: "LAB",
-      created_by: adminUser.id,
-      modified_by: null,
-    }
-  });
-
-  const computerLab = await prisma.location.create({
-    data: {
-      name: "Computer Lab A",
-      capacity: 25,
-      description: "Computer laboratory with workstations and development tools",
-      is_available: true,
-      building: "CS Block",
-      floor: "2",
-      room_number: "201",
-      wing: "A",
-      images: ["/location-images/lab2.jpeg"],
-      location_type: "LAB",
-      created_by: adminUser.id,
-      modified_by: null,
-    }
-  });
-
-  const roboticsLab = await prisma.location.create({
-    data: {
-      name: "Robotics Lab",
-      capacity: 20,
-      description: "Robotics and automation laboratory with specialized equipment",
-      is_available: true,
-      building: "ME Block",
-      floor: "1",
-      room_number: "101",
-      wing: "B",
-      images: ["/location-images/lab3.jpeg"],
-      location_type: "LAB",
-      created_by: adminUser.id,
-      modified_by: null,
-    }
-  });
-
-  const storageRoom = await prisma.location.create({
-    data: {
-      name: "Storage Room",
-      capacity: 0,
-      description: "Storage facility for components and equipment",
-      is_available: true,
-      building: "CS Block",
-      floor: "1",
-      room_number: "105",
-      wing: "A",
-      images: [],
-      location_type: "WAREHOUSE",
-      created_by: adminUser.id,
-      modified_by: null,
-    }
-  });
-
-
 
   // Create projects
   console.log('\n📋 Creating projects...');
@@ -499,7 +541,7 @@ async function main() {
       components_needed: [arduinoComponent.id, displayComponent.id],
       course_id: course_CS101.id,
       created_by: createdUsers['preetham@pes.edu'].id,
-      accepted_by: madhukharFaculty?.id || null,
+      accepted_by: createdUsers['cieoffice@pes.edu'].id,
       expected_completion_date: new Date("2025-07-03T08:54:00.000Z"),
       modified_by: null,
       status: "ONGOING", // Approved student project
@@ -513,8 +555,8 @@ async function main() {
       description: "Development of a comprehensive IoT system for monitoring environmental parameters like temperature, humidity, air quality, and noise levels in real-time with cloud-based data analytics.",
       components_needed: [nodeMcuComponent.id, breadboardComponent.id, servoComponent.id],
       course_id: course_CS102.id,
-      created_by: tarunFaculty?.id || adminUser.id,
-      accepted_by: madhukharFaculty?.id || null,
+      created_by: createdUsers['tarunrama@pes.edu'].id,
+      accepted_by: createdUsers['cieoffice@pes.edu'].id,
       expected_completion_date: new Date("2025-08-15T00:00:00.000Z"),
       modified_by: null,
       status: "ONGOING", // Approved faculty project
@@ -524,7 +566,7 @@ async function main() {
 
   // Create sample component requests demonstrating the simplified return flow
   console.log('\n📝 Creating sample component requests...');
-  
+
   // Student request - COLLECTED status (ready for return)
   const studentRequest1 = await prisma.componentRequest.create({
     data: {
@@ -535,7 +577,7 @@ async function main() {
       request_date: new Date("2025-07-01T10:00:00.000Z"),
       required_date: new Date("2025-07-15T17:00:00.000Z"),
       status: "COLLECTED",
-      approved_by: madhukharFaculty?.id,
+      approved_by: createdUsers['cieoffice@pes.edu'].faculty.id, // This is a Faculty.id
       approved_date: new Date("2025-07-01T14:00:00.000Z"),
       collection_date: new Date("2025-07-02T09:00:00.000Z"),
       project_id: studentProject.id,
@@ -553,7 +595,7 @@ async function main() {
       request_date: new Date("2025-07-02T11:00:00.000Z"),
       required_date: new Date("2025-07-16T17:00:00.000Z"),
       status: "USER_RETURNED",
-      approved_by: madhukharFaculty?.id,
+      approved_by: createdUsers['cieoffice@pes.edu'].faculty.id, // This is a Faculty.id
       approved_date: new Date("2025-07-02T15:00:00.000Z"),
       collection_date: new Date("2025-07-03T10:00:00.000Z"),
       return_date: new Date("2025-07-10T14:00:00.000Z"),
@@ -571,8 +613,8 @@ async function main() {
       purpose: "Circuit prototyping and testing",
       request_date: new Date("2025-07-03T09:00:00.000Z"),
       required_date: new Date("2025-07-17T17:00:00.000Z"),
-             status: "USER_RETURNED" as const,
-      approved_by: madhukharFaculty?.id,
+      status: "USER_RETURNED",
+      approved_by: createdUsers['cieoffice@pes.edu'].faculty.id, // This is a Faculty.id
       approved_date: new Date("2025-07-03T13:00:00.000Z"),
       collection_date: new Date("2025-07-04T11:00:00.000Z"),
       return_date: new Date("2025-07-11T16:00:00.000Z"),
@@ -584,14 +626,14 @@ async function main() {
   // Faculty request - COLLECTED status
   const facultyRequest1 = await prisma.componentRequest.create({
     data: {
-      faculty_id: tarunFaculty?.id,
+      faculty_id: createdUsers['tarunrama@pes.edu'].faculty.id, // Use Faculty.id, not User.id
       component_id: nodeMcuComponent.id,
       quantity: 3,
       purpose: "IoT sensor nodes for environmental monitoring research",
       request_date: new Date("2025-07-05T08:00:00.000Z"),
       required_date: new Date("2025-08-05T17:00:00.000Z"),
       status: "COLLECTED",
-      approved_by: madhukharFaculty?.id,
+      approved_by: createdUsers['cieoffice@pes.edu'].faculty.id, // This is a Faculty.id
       approved_date: new Date("2025-07-05T12:00:00.000Z"),
       collection_date: new Date("2025-07-06T10:00:00.000Z"),
       project_id: facultyProject.id,
@@ -602,14 +644,14 @@ async function main() {
   // Faculty request - USER_RETURNED status
   const facultyRequest2 = await prisma.componentRequest.create({
     data: {
-      faculty_id: sathyaFaculty?.id,
+      faculty_id: createdUsers['sathya.prasad@pes.edu'].faculty.id, // Use Faculty.id, not User.id
       component_id: servoComponent.id,
       quantity: 2,
       purpose: "Actuator testing for automation prototype",
       request_date: new Date("2025-07-06T09:30:00.000Z"),
       required_date: new Date("2025-07-20T17:00:00.000Z"),
       status: "USER_RETURNED",
-      approved_by: madhukharFaculty?.id,
+      approved_by: createdUsers['cieoffice@pes.edu'].faculty.id, // This is a Faculty.id
       approved_date: new Date("2025-07-06T14:00:00.000Z"),
       collection_date: new Date("2025-07-07T09:00:00.000Z"),
       return_date: new Date("2025-07-12T15:30:00.000Z"),
@@ -628,7 +670,7 @@ async function main() {
       request_date: new Date("2025-06-28T10:00:00.000Z"),
       required_date: new Date("2025-07-05T17:00:00.000Z"),
       status: "RETURNED",
-      approved_by: madhukharFaculty?.id,
+      approved_by: createdUsers['cieoffice@pes.edu'].faculty.id, // This is a Faculty.id
       approved_date: new Date("2025-06-28T14:00:00.000Z"),
       collection_date: new Date("2025-06-29T11:00:00.000Z"),
       return_date: new Date("2025-07-05T16:30:00.000Z"),
@@ -640,13 +682,13 @@ async function main() {
   // Summary
   console.log('\n🎉 Seed completed successfully!');
   console.log('\n📊 Summary of created data:');
-  console.log(`   - Domains: 2 (Lab Components, Library)`);
+  console.log(`   - Domains: 4 (Lab Components, Library, Platform Manager, Developer)`);
   console.log(`   - Domain Coordinators: 2`);
   console.log(`   - Courses: 2`);
   console.log(`   - Course Units: 2`);
   console.log(`   - Lab Components: 5 (all assigned to Lab Components domain)`);
   console.log(`   - Library Items: 1`);
-  console.log(`   - Locations: 2`);
+  console.log(`   - Locations: 5`);
   console.log(`   - Projects: 2 (1 student, 1 faculty - both ONGOING)`);
   console.log(`   - Component Requests: 6 (demonstrating simplified return flow)`);
   console.log('\n🔄 Return Flow Examples:');
@@ -654,8 +696,8 @@ async function main() {
   console.log('   - USER_RETURNED: User confirmed return, waiting for coordinator verification');
   console.log('   - RETURNED: Complete return cycle');
   console.log('\n👨‍💼 Coordinator Assignments:');
-  console.log('   - Madhukar N: Lab Components Domain');
-  console.log('   - Sathya Prasad: Library Domain');
+  console.log(`   - Madhukar N: Lab Components Domain (${labDomain.name})`);
+  console.log(`   - Sathya Prasad: Library Domain (${libraryDomain.name})`);
 }
 
 main()
@@ -665,4 +707,4 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect();
-  }); 
+  });

@@ -32,7 +32,7 @@ export function getOverdueDays(expectedReturnDate: string): number {
   return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 }
 
-type ViewType = 'available' | 'requests' | 'active' | 'overdue'
+type ViewType = 'available' | 'reserved' | 'active' | 'overdue'
 
 interface LabComponent {
   id: string
@@ -45,6 +45,8 @@ interface LabComponent {
   component_specification: string
   image_url: string | null
   back_image_url?: string | null
+  front_image_id?: string | null
+  back_image_id?: string | null
   projects: { id: string; name: string }[]
 }
 
@@ -91,10 +93,8 @@ export function LabComponentsRequest() {
   })
 
   const [imageStates, setImageStates] = useState<Record<string, boolean>>({}) // false = front, true = back
+  const [showBack, setShowBack] = useState(false)
 
-
-
-  const [userReturnDialogOpen, setUserReturnDialogOpen] = useState<string | null>(null)
   const [infoDialogOpen, setInfoDialogOpen] = useState<string | null>(null)
   const [categoryFilter, setCategoryFilter] = useState<string>("All")
 
@@ -302,40 +302,6 @@ export function LabComponentsRequest() {
     }
   }
 
-  const handleReturnComponent = async (requestId: string) => {
-    if (!user) return;
-    try {
-      const response = await fetch(`/api/component-requests/${requestId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "x-user-id": user.id
-        },
-        body: JSON.stringify({
-          status: "USER_RETURNED",  // Student confirms they have returned the component
-          return_date: new Date().toISOString(),
-        }),
-      })
-
-      if (response.ok) {
-        fetchData()
-        toast({
-          title: "Return Confirmed",
-          description: "You have confirmed returning the component. Awaiting coordinator verification.",
-        })
-      } else {
-        throw new Error("Failed to confirm return")
-      }
-    } catch (error) {
-      console.error("Error confirming return:", error)
-      toast({
-        title: "Error",
-        description: "Failed to confirm return",
-        variant: "destructive",
-      })
-    }
-  }
-
   const getStatusColor = (status: string) => {
     switch (status.toUpperCase()) {
       case "PENDING":
@@ -399,6 +365,11 @@ export function LabComponentsRequest() {
   const activeRequests = requests.filter(r => r.status === "APPROVED" || r.status === "COLLECTED")
   const overdueRequests = requests.filter(r => r.status === "COLLECTED" && isOverdue(r.required_date))
 
+  // Filter requests by status to match library system
+  const reservedItems = requests.filter((req) => req.status === "APPROVED")
+  const activeLoans = requests.filter((req) => req.status === "COLLECTED")
+  const overdueItems = activeLoans.filter((req) => req.required_date && isOverdue(req.required_date))
+
   const [currentView, setCurrentView] = useState<ViewType>('available')
 
   if (loading) {
@@ -451,22 +422,22 @@ export function LabComponentsRequest() {
           
           <Card 
             className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-105 hover:bg-blue-100 hover:border-blue-300 ${
-              currentView === 'requests' ? 'ring-2 ring-blue-500 bg-blue-50 border-blue-200' : 'hover:ring-1 hover:ring-blue-200'
+              currentView === 'reserved' ? 'ring-2 ring-blue-500 bg-blue-50 border-blue-200' : 'hover:ring-1 hover:ring-blue-200'
             }`}
-            onClick={() => setCurrentView('requests')}
+            onClick={() => setCurrentView('reserved')}
           >
             <CardContent className="p-4">
               <div className="flex items-center space-x-2">
                 <ClipboardCheck className={`h-5 w-5 transition-colors duration-200 ${
-                  currentView === 'requests' ? 'text-blue-600' : 'text-blue-500 group-hover:text-blue-700'
+                  currentView === 'reserved' ? 'text-blue-600' : 'text-blue-500 group-hover:text-blue-700'
                 }`} />
                 <div>
                   <p className={`text-2xl font-bold transition-colors duration-200 ${
-                    currentView === 'requests' ? 'text-blue-700' : 'text-gray-900'
-                  }`}>{requests.length}</p>
+                    currentView === 'reserved' ? 'text-blue-700' : 'text-gray-900'
+                  }`}>{reservedItems.length}</p>
                   <p className={`text-sm transition-colors duration-200 ${
-                    currentView === 'requests' ? 'text-blue-600' : 'text-gray-600'
-                  }`}>My Requests</p>
+                    currentView === 'reserved' ? 'text-blue-600' : 'text-gray-600'
+                  }`}>Reserved</p>
                 </div>
               </div>
             </CardContent>
@@ -480,16 +451,16 @@ export function LabComponentsRequest() {
           >
             <CardContent className="p-4">
               <div className="flex items-center space-x-2">
-                <Clock className={`h-5 w-5 transition-colors duration-200 ${
+                <Package className={`h-5 w-5 transition-colors duration-200 ${
                   currentView === 'active' ? 'text-green-600' : 'text-green-500 group-hover:text-green-700'
                 }`} />
                 <div>
                   <p className={`text-2xl font-bold transition-colors duration-200 ${
                     currentView === 'active' ? 'text-green-700' : 'text-gray-900'
-                  }`}>{activeRequests.length}</p>
+                  }`}>{activeLoans.length}</p>
                   <p className={`text-sm transition-colors duration-200 ${
                     currentView === 'active' ? 'text-green-600' : 'text-gray-600'
-                  }`}>Active Requests</p>
+                  }`}>Active Loans</p>
                 </div>
               </div>
             </CardContent>
@@ -509,7 +480,7 @@ export function LabComponentsRequest() {
                 <div>
                   <p className={`text-2xl font-bold transition-colors duration-200 ${
                     currentView === 'overdue' ? 'text-red-700' : 'text-gray-900'
-                  }`}>{overdueRequests.length}</p>
+                  }`}>{overdueItems.length}</p>
                   <p className={`text-sm transition-colors duration-200 ${
                     currentView === 'overdue' ? 'text-red-600' : 'text-gray-600'
                   }`}>Overdue</p>
@@ -532,7 +503,7 @@ export function LabComponentsRequest() {
               <CardContent>
                 <div className="space-y-4">
                   <div className="flex flex-wrap gap-2 items-center mb-4 pb-1">
-                    <div className="relative w-56">
+                    <div className="relative w-full md:w-1/2 lg:w-1/3">
                       <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400">
                         <Search className="h-4 w-4" />
                       </span>
@@ -559,7 +530,7 @@ export function LabComponentsRequest() {
                     </div>
                   </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredComponents.map((component) => (
                 <Card key={component.id} className="flex flex-col h-full hover:shadow-md transition-shadow duration-200">
                             <CardHeader className="p-3">
@@ -589,8 +560,8 @@ export function LabComponentsRequest() {
                             <CardContent className="flex-grow flex flex-col p-3 pt-0">
                               <div className="space-y-3 flex-grow">
                                 {/* Image Display */}
-                                {(component.image_url || component.back_image_url) && (
-                                  <div className="relative w-full h-32">
+                                {(component.front_image_id || component.back_image_id) && (
+                                  <div className="relative w-full h-48">
                                     {/* Front Image */}
                                     <div 
                                       className={`absolute inset-0 w-full h-full transition-opacity duration-300 ease-in-out ${
@@ -608,14 +579,14 @@ export function LabComponentsRequest() {
                                     </div>
                                     
                                     {/* Back Image */}
-                                    {component.back_image_url && (
+                                    {component.back_image_id && (
                                       <div 
                                         className={`absolute inset-0 w-full h-full transition-opacity duration-300 ease-in-out ${
                                           imageStates[component.id] ? 'opacity-100' : 'opacity-0'
                                         }`}
                                       >
                                         <img
-                                          src={component.back_image_url}
+                                          src={component.back_image_url || '/placeholder.jpg'}
                                           alt={`Back view of ${component.component_name}`}
                                           className="w-full h-full object-contain rounded-md bg-gray-50"
                                           onError={(e) => {
@@ -626,7 +597,7 @@ export function LabComponentsRequest() {
                                     )}
                                     
                                     {/* Navigation Buttons */}
-                                    {component.back_image_url && (
+                                    {component.back_image_id && (
                                       <>
                                         {!imageStates[component.id] && (
                                           <Button
@@ -652,7 +623,7 @@ export function LabComponentsRequest() {
                                     )}
 
                                     {/* Image Indicator */}
-                                    {component.back_image_url && (
+                                    {component.back_image_id && (
                                       <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex space-x-1 z-10">
                                         <div 
                                           className={`w-1 h-1 rounded-full transition-colors duration-300 ${
@@ -671,8 +642,8 @@ export function LabComponentsRequest() {
                                 
                                 <div className="space-y-1">
                                   <div className="grid grid-cols-2 gap-2 text-xs text-gray-700">
-                                    <div><span className="font-medium">Available:</span> {component.available_quantity}</div>
                                     <div><span className="font-medium">Total:</span> {component.component_quantity}</div>
+                                    <div><span className="font-medium">Available:</span> {component.available_quantity}</div>
                                   </div>
                                   
                                   <div className="text-xs text-gray-500">
@@ -859,446 +830,364 @@ export function LabComponentsRequest() {
             </Card>
           </div>
         )}
-        {currentView === 'requests' && (
+        {currentView === 'reserved' && (
           <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <ClipboardCheck className="h-5 w-5" />
-                  <span>My Requests</span>
-                </CardTitle>
-                <CardDescription>
-                  View all your component requests and their current status.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-2">
-              {requests.length === 0 ? (
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <Package className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                    <h3 className="font-medium text-gray-900 mb-1">No requests yet</h3>
-                    <p className="text-sm text-gray-600">Submit your first component request to get started.</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                requests.map((request) => (
-                  <Card key={request.id} className="border-l-4 border-l-orange-400">
-                    <CardContent className="p-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3 flex-1">
-                          <div className="w-8 h-8 bg-orange-100 rounded-md flex items-center justify-center flex-shrink-0">
-                            <Package className="h-4 w-4 text-orange-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-medium text-gray-900 truncate text-sm">{request.component.component_name}</h3>
-                            <div className="flex items-center space-x-3 text-xs text-gray-500 mt-0.5">
-                              <span>Qty: {request.quantity}</span>
-                              <span>Requested: {new Date(request.request_date).toLocaleDateString()}</span>
-                              <span className={isOverdue(request.required_date) ? "text-red-600 font-medium" : ""}>
-                                Due: {new Date(request.required_date).toLocaleDateString()}
-                              </span>
-                            </div>
-                            {request.project_id && (
-                              <div className="mt-1">
-                                <p className="text-xs text-orange-600">
-                                  Project: {projects.find(p => p.id === request.project_id)?.name || 'Unknown'}
-                                </p>
-                              </div>
-                            )}
-                          </div>
+            <h2 className="text-xl font-semibold">Reserved Items</h2>
+            {reservedItems.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <ClipboardCheck className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No reserved items</h3>
+                  <p className="text-gray-600">Items you reserve will appear here, ready for collection.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {reservedItems.map((request) => (
+                  <Card key={request.id} className="flex flex-col h-full hover:shadow-lg hover:scale-105 transition-all duration-200 border border-gray-200 bg-white">
+                    <CardHeader className="p-3 pb-2">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 min-w-0">
+                          <CardTitle className="flex items-center space-x-2 text-base font-semibold">
+                            <ClipboardCheck className="h-4 w-4 flex-shrink-0 text-blue-600" />
+                            <span className="truncate">{request.component.component_name}</span>
+                          </CardTitle>
+                          <CardDescription className="text-xs">{request.component.component_category}</CardDescription>
                         </div>
-                        
-                        <div className="flex items-center space-x-2">
-                          <Badge className={`${getStatusColor(request.status)} text-xs px-2 py-1`}>
-                            <div className="flex items-center space-x-1">
-                              {getStatusIcon(request.status)}
-                              <span>{request.status}</span>
-                            </div>
+                        <div className="flex items-center space-x-1 flex-shrink-0">
+                          <Badge className="text-xs px-2 py-0.5 rounded-full font-medium bg-blue-100 text-blue-800">
+                            Reserved
                           </Badge>
-                          
-                          {/* Status-specific actions and messages */}
-                          <div className="text-right min-w-0">
-                            {request.status === "COLLECTED" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setUserReturnDialogOpen(request.id)}
-                                className="text-xs"
-                              >
-                                I Returned It
-                              </Button>
-                            )}
-
-                            {request.status === "USER_RETURNED" && (
-                              <div className="text-xs text-purple-600 font-medium">
-                                Waiting for coordinator verification
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="flex-grow flex flex-col p-3 pt-0">
+                      <div className="space-y-3 flex-grow">
+                        {/* Image Display */}
+                        {(request.component.front_image_id || request.component.back_image_id || request.component.image_url) && (
+                          <div className="relative w-full h-48">
+                            <img
+                              src={request.component.image_url || '/placeholder.jpg'}
+                              alt={`Image of ${request.component.component_name}`}
+                              className="w-full h-full object-contain rounded-md bg-gray-50"
+                              onError={(e) => {
+                                e.currentTarget.src = "/placeholder.jpg"
+                              }}
+                            />
+                          </div>
+                        )}
+                        
+                        <div className="space-y-1">
+                          <div className="grid grid-cols-2 gap-2 text-xs text-gray-700">
+                            <div>
+                              <span className="font-medium">Reserved:</span> {new Date(request.request_date).toLocaleDateString()}
+                            </div>
+                            {request.quantity && (
+                              <div>
+                                <span className="font-medium">Quantity:</span> {request.quantity}
                               </div>
                             )}
-                            
-                            {request.status === "RETURNED" && (
-                              <p className="text-xs text-green-600">
-                                ✅ Returned
-                              </p>
-                            )}
-                            
-                            {request.status === "REJECTED" && (
-                              <p className="text-xs text-red-600">
-                                ❌ Rejected
-                              </p>
-                            )}
-
-                            {/* Show overdue warning for collected items */}
-                            {request.status === "COLLECTED" && isOverdue(request.required_date) && (
-                              <p className="text-xs text-red-600 font-medium mt-1">
-                                ⚠️ {getOverdueDays(request.required_date)}d overdue
-                              </p>
-                            )}
+                          </div>
+                          
+                          <div className="flex items-center space-x-1 mt-2">
+                            <ClipboardCheck className="h-3 w-3 text-blue-600" />
+                            <p className="text-xs font-medium text-blue-600">
+                              Ready for collection
+                            </p>
                           </div>
                         </div>
-                        
                       </div>
-                      {request.faculty_notes && (
-                        <div className="mt-3 p-2 bg-blue-50 rounded text-xs text-blue-700">
-                          <strong>Faculty Notes:</strong> {request.faculty_notes}
-                        </div>
-                      )}
                     </CardContent>
                   </Card>
-                ))
-              )}
-                </div>
-              </CardContent>
-            </Card>
+                ))}
+              </div>
+            )}
           </div>
         )}
         {currentView === 'active' && (
           <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Clock className="h-5 w-5" />
-                  <span>Active Requests</span>
-                </CardTitle>
-                <CardDescription>
-                  View your currently active component requests.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-2">
-              {activeRequests.length === 0 ? (
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <Clock className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                    <h3 className="font-medium text-gray-900 mb-1">No active requests</h3>
-                    <p className="text-sm text-gray-600">You have no active component requests.</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                activeRequests.map((request) => (
-                  <Card key={request.id} className="border-l-4 border-l-green-400">
-                    <CardContent className="p-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3 flex-1">
-                          <div className="w-8 h-8 bg-green-100 rounded-md flex items-center justify-center flex-shrink-0">
-                            <Package className="h-4 w-4 text-green-600" />
-                          </div>
+            <h2 className="text-xl font-semibold">Active Loans</h2>
+            {activeLoans.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No active loans</h3>
+                  <p className="text-gray-600">Items you collect will appear here.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {activeLoans.map((request) => {
+                  const overdue = request.required_date && isOverdue(request.required_date)
+                  const daysOverdue = request.required_date ? getOverdueDays(request.required_date) : 0
+                  
+                  return (
+                    <Card key={request.id} className={`flex flex-col h-full hover:shadow-lg hover:scale-105 transition-all duration-200 border border-gray-200 bg-white ${
+                      overdue ? "border-red-200 bg-red-50" : ""
+                    }`}>
+                      <CardHeader className="p-3 pb-0">
+                        <div className="flex justify-between items-start">
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-medium text-gray-900 truncate text-sm">{request.component.component_name}</h3>
-                            <div className="flex items-center space-x-3 text-xs text-gray-500 mt-0.5">
-                              <span>Qty: {request.quantity}</span>
-                              <span>Requested: {new Date(request.request_date).toLocaleDateString()}</span>
-                              <span className={isOverdue(request.required_date) ? "text-red-600 font-medium" : ""}>
-                                Due: {new Date(request.required_date).toLocaleDateString()}
-                              </span>
-                            </div>
-                            {request.project_id && (
-                              <div className="mt-1">
-                                <p className="text-xs text-green-600">
-                                  Project: {projects.find(p => p.id === request.project_id)?.name || 'Unknown'}
-                                </p>
-                              </div>
-                            )}
+                            <CardTitle className="flex items-center space-x-2 text-base font-semibold">
+                              <Package className="h-5 w-5 flex-shrink-0 text-purple-600" />
+                              <span className="truncate">{request.component.component_name}</span>
+                            </CardTitle>
+                            <CardDescription className="text-xs text-gray-500">{request.component.component_category}</CardDescription>
+                          </div>
+                          <div className="flex items-center space-x-1 flex-shrink-0">
+                            <Badge className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                              overdue ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                            }`}>
+                              {overdue ? 'Overdue' : 'Active Loan'}
+                            </Badge>
                           </div>
                         </div>
-                        
-                        <div className="flex items-center space-x-2">
-                          <Badge className={`${getStatusColor(request.status)} text-xs px-2 py-1`}>
-                            <div className="flex items-center space-x-1">
-                              {getStatusIcon(request.status)}
-                              <span>{request.status}</span>
+                      </CardHeader>
+                      <CardContent className="flex-grow flex flex-col p-3 pt-0">
+                        <div className="space-y-3 flex-grow">
+                          {/* Image Display */}
+                          {(request.component.front_image_id || request.component.back_image_id || request.component.image_url) && (
+                            <div className="relative w-full h-48">
+                              <img
+                                src={request.component.image_url || '/placeholder.jpg'}
+                                alt={`Image of ${request.component.component_name}`}
+                                className="w-full h-full object-contain rounded-md bg-gray-50"
+                                onError={(e) => {
+                                  e.currentTarget.src = "/placeholder.jpg"
+                                }}
+                              />
                             </div>
-                          </Badge>
+                          )}
                           
-                          {/* Status-specific actions and messages */}
-                          <div className="text-right min-w-0">
-                            {request.status === "COLLECTED" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setUserReturnDialogOpen(request.id)}
-                                className="text-xs"
-                              >
-                                I Returned It
-                              </Button>
-                            )}
-
-                            {request.status === "USER_RETURNED" && (
-                              <div className="text-xs text-purple-600 font-medium">
-                                Waiting for coordinator verification
+                          <div className="space-y-1">
+                            <div className="grid grid-cols-2 gap-2 text-xs text-gray-700">
+                              <div>
+                                <span className="font-medium">Collected:</span> {new Date(request.request_date).toLocaleDateString()}
                               </div>
-                            )}
+                              {request.quantity && (
+                                <div>
+                                  <span className="font-medium">Quantity:</span> {request.quantity}
+                                </div>
+                              )}
+                            </div>
                             
-                            {request.status === "RETURNED" && (
-                              <p className="text-xs text-green-600">
-                                ✅ Returned
+                            <div className="flex items-center space-x-1 mt-2">
+                              <p className={`text-xs font-medium ${
+                                overdue ? 'text-red-600' : 'text-green-600'
+                              }`}>
+                                {overdue ? `${daysOverdue} days overdue` : 'Currently borrowed'}
                               </p>
-                            )}
-                            
-                            {request.status === "REJECTED" && (
-                              <p className="text-xs text-red-600">
-                                ❌ Rejected
-                              </p>
-                            )}
-
-                            {/* Show overdue warning for collected items */}
-                            {request.status === "COLLECTED" && isOverdue(request.required_date) && (
-                              <p className="text-xs text-red-600 font-medium mt-1">
-                                ⚠️ {getOverdueDays(request.required_date)}d overdue
+                            </div>
+                            {overdue && (
+                              <p className="text-red-600 font-medium text-xs mt-1">
+                                ⚠️ Return immediately to avoid penalties
                               </p>
                             )}
                           </div>
                         </div>
-                      </div>
-                      {request.faculty_notes && (
-                        <div className="mt-3 p-2 bg-blue-50 rounded text-xs text-blue-700">
-                          <strong>Faculty Notes:</strong> {request.faculty_notes}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-                </div>
-              </CardContent>
-            </Card>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
         {currentView === 'overdue' && (
           <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <AlertTriangle className="h-5 w-5" />
-                  <span>Overdue Requests</span>
-                </CardTitle>
-                <CardDescription>
-                  View your overdue component requests that need attention.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-2">
-                  {overdueRequests.length === 0 ? (
-                    <Card>
-                      <CardContent className="p-4 text-center">
-                        <AlertTriangle className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                        <h3 className="font-medium text-gray-900 mb-1">No overdue requests</h3>
-                        <p className="text-sm text-gray-600">You have no overdue component requests.</p>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    overdueRequests.map((request) => (
-                      <Card key={request.id} className="border-l-4 border-l-red-400">
-                        <CardContent className="p-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3 flex-1">
-                              <div className="w-8 h-8 bg-red-100 rounded-md flex items-center justify-center flex-shrink-0">
-                                <Package className="h-4 w-4 text-red-600" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h3 className="font-medium text-gray-900 truncate text-sm">{request.component.component_name}</h3>
-                                <div className="flex items-center space-x-3 text-xs text-gray-500 mt-0.5">
-                                  <span>Qty: {request.quantity}</span>
-                                  <span>Requested: {new Date(request.request_date).toLocaleDateString()}</span>
-                                  <span className={isOverdue(request.required_date) ? "text-red-600 font-medium" : ""}>
-                                    Due: {new Date(request.required_date).toLocaleDateString()}
-                                  </span>
-                                </div>
-                                {request.project_id && (
-                                  <div className="mt-1">
-                                    <p className="text-xs text-red-600">
-                                      Project: {projects.find(p => p.id === request.project_id)?.name || 'Unknown'}
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <Badge className={`${getStatusColor(request.status)} text-xs px-2 py-1`}>
-                                <div className="flex items-center space-x-1">
-                                  {getStatusIcon(request.status)}
-                                  <span>{request.status}</span>
-                                </div>
-                              </Badge>
-                              {/* Status-specific actions and messages */}
-                              <div className="text-right min-w-0">
-                                {request.status === "COLLECTED" && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => setUserReturnDialogOpen(request.id)}
-                                    className="text-xs"
-                                  >
-                                    I Returned It
-                                  </Button>
-                                )}
-                                {request.status === "USER_RETURNED" && (
-                                  <div className="text-xs text-purple-600 font-medium">
-                                    Waiting for coordinator verification
-                                  </div>
-                                )}
-                                {request.status === "RETURNED" && (
-                                  <p className="text-xs text-green-600">
-                                    ✅ Returned
-                                  </p>
-                                )}
-                                {request.status === "REJECTED" && (
-                                  <p className="text-xs text-red-600">
-                                    ❌ Rejected
-                                  </p>
-                                )}
-                                {/* Show overdue warning for collected items */}
-                                {request.status === "COLLECTED" && isOverdue(request.required_date) && (
-                                  <p className="text-xs text-red-600 font-medium mt-1">
-                                    ⚠️ {getOverdueDays(request.required_date)}d overdue
-                                  </p>
-                                )}
-                              </div>
-                            </div>
+            <h2 className="text-xl font-semibold">Overdue Items</h2>
+            {overdueItems.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <CheckCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No overdue items</h3>
+                  <p className="text-gray-600">Keep up the good work! Return items on time.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {overdueItems.map((request) => {
+                  const daysOverdue = request.required_date ? getOverdueDays(request.required_date) : 0
+                  
+                  return (
+                    <Card key={request.id} className="flex flex-col h-full hover:shadow-lg hover:scale-105 transition-all duration-200 border border-red-300 bg-red-50">
+                      <CardHeader className="p-3 pb-2">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1 min-w-0">
+                            <CardTitle className="flex items-center space-x-2 text-base font-semibold">
+                              <Package className="h-4 w-4 flex-shrink-0 text-red-600" />
+                              <span className="truncate">{request.component.component_name}</span>
+                            </CardTitle>
+                            <CardDescription className="text-xs">{request.component.component_category}</CardDescription>
                           </div>
-                          {request.faculty_notes && (
-                            <div className="mt-3 p-2 bg-blue-50 rounded text-xs text-blue-700">
-                              <strong>Faculty Notes:</strong> {request.faculty_notes}
+                          <div className="flex items-center space-x-1 flex-shrink-0">
+                            <Badge className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-800">
+                              Overdue
+                            </Badge>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="flex-grow flex flex-col p-3 pt-0">
+                        <div className="space-y-3 flex-grow">
+                          {/* Image Display */}
+                          {(request.component.front_image_id || request.component.back_image_id || request.component.image_url) && (
+                            <div className="relative w-full h-48">
+                              <img
+                                src={request.component.image_url || '/placeholder.jpg'}
+                                alt={`Image of ${request.component.component_name}`}
+                                className="w-full h-full object-contain rounded-md bg-gray-50"
+                                onError={(e) => {
+                                  e.currentTarget.src = "/placeholder.jpg"
+                                }}
+                              />
                             </div>
                           )}
-                        </CardContent>
-                      </Card>
-                    ))
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                          
+                          <div className="space-y-1">
+                            <div className="grid grid-cols-2 gap-2 text-xs text-gray-700">
+                              <div>
+                                <span className="font-medium">Collected:</span> {new Date(request.request_date).toLocaleDateString()}
+                              </div>
+                              {request.quantity && (
+                                <div>
+                                  <span className="font-medium">Quantity:</span> {request.quantity}
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="flex items-center space-x-1 mt-2">
+                              <p className="text-xs text-red-600 font-medium">
+                                {daysOverdue} days overdue
+                              </p>
+                            </div>
+                            <p className="text-red-600 font-medium text-xs mt-1">
+                              ⚠️ Return immediately to avoid penalties
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
 
-                  {/* User Returned Dialog */}
-                  <Dialog open={!!userReturnDialogOpen} onOpenChange={(open) => !open && setUserReturnDialogOpen(null)}>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Confirm Component Return</DialogTitle>
-                        <DialogDescription>
-                          Please confirm that you have physically returned this component to the lab. The coordinator will then verify and complete the return process.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="flex justify-end space-x-2">
-                        <Button variant="outline" onClick={() => setUserReturnDialogOpen(null)}>
-                          Cancel
-                        </Button>
-                        <Button onClick={() => {
-                          if (userReturnDialogOpen) {
-                            handleReturnComponent(userReturnDialogOpen)
-                            setUserReturnDialogOpen(null)
-                          }
-                        }}>
-                          Yes, I Returned It
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-
                   {/* Component Info Dialog */}
                   <Dialog open={!!infoDialogOpen} onOpenChange={(open) => !open && setInfoDialogOpen(null)}>
-                    <DialogContent className="sm:max-w-lg">
+                    <DialogContent className="sm:max-w-3xl">
                       <DialogHeader>
                         <DialogTitle>Component Details</DialogTitle>
                       </DialogHeader>
-                      {infoDialogOpen && (() => {
-                        const component = components.find(c => c.id === infoDialogOpen)
-                        if (!component) return null
-                        
+                      {(() => {
+                        if (!infoDialogOpen) return null;
+                        const component = components.find(c => c.id === infoDialogOpen);
+                        if (!component) return null;
+                        const isAvailable = component.available_quantity > 0;
                         return (
-                          <div className="space-y-4">
-                            {/* Component Name and Category */}
-                            <div className="space-y-2">
-                              <div className="flex items-center space-x-2">
-                                <Package className="h-5 w-5 text-gray-500" />
-                                <h3 className="text-lg font-semibold">{component.component_name}</h3>
-                              </div>
-                              <Badge variant="outline" className="text-xs">
-                                {component.component_category}
-                              </Badge>
-                            </div>
-
-                            {/* Description */}
-                            {/* <div className="space-y-2">
-                              <h4 className="font-medium text-sm">Description</h4>
-                              <p className="text-sm text-gray-600">{component.component_description}</p>
-                            </div> */}
-
-                            {/* Specifications */}
-                            {/* <div className="space-y-2">
-                              <h4 className="font-medium text-sm">Specifications</h4>
-                              <p className="text-sm text-gray-600">{component.component_specification}</p>
-                            </div> */}
-
-                            {/* Availability */}
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-1">
-                                <h4 className="font-medium text-sm">Total Quantity</h4>
-                                <p className="text-lg font-semibold text-gray-900">{component.component_quantity}</p>
-                              </div>
-                              <div className="space-y-1">
-                                <h4 className="font-medium text-sm">Available</h4>
-                                <p className={`text-lg font-semibold ${component.available_quantity === 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                  {component.available_quantity}
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* On Loan */}
-                            <div className="space-y-1">
-                              <h4 className="font-medium text-sm">Currently On Loan</h4>
-                              <p className="text-lg font-semibold text-blue-600">
-                                {component.component_quantity - component.available_quantity}
-                              </p>
-                            </div>
-
-                            {/* Location */}
-                            <div className="space-y-2">
-                              <h4 className="font-medium text-sm">Location</h4>
-                              <p className="text-sm text-gray-600">{component.component_location}</p>
-                            </div>
-
-                            {/* Associated Projects */}
-                            {component.projects && component.projects.length > 0 && (
-                              <div className="space-y-2">
-                                <h4 className="font-medium text-sm">Associated Projects</h4>
-                                <div className="space-y-1">
-                                  {component.projects.map((project) => (
-                                    <Badge key={project.id} variant="outline" className="text-xs mr-1">
-                                      {project.name}
-                                    </Badge>
-                                  ))}
+                          <div className="flex flex-col md:flex-row gap-8">
+                            {/* Left: Details */}
+                            <div className="flex-1 min-w-0">
+                              <div className="space-y-6">
+                                <div className="flex items-center justify-between">
+                                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                                    <Package className="h-5 w-5 text-gray-500" />
+                                    {component.component_name}
+                                  </h3>
+                                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${isAvailable ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{isAvailable ? 'Available' : 'Not Available'}</span>
                                 </div>
-                              </div>
-                            )}
+                                <div className="flex flex-row items-end justify-center pl-8">
+                                  <div>
+                                    <h4 className="font-medium text-sm">Total Quantity</h4>
+                                    <p className="text-lg font-semibold text-gray-900 text-center">{component?.component_quantity}</p>
+                                  </div>
+                                  <div className="ml-16 text-center">
+                                    <h4 className="font-medium text-sm">Available</h4>
+                                    <p className={`text-lg font-semibold ${isAvailable ? 'text-green-600' : 'text-red-600'} text-center`}>{component?.available_quantity}</p>
+                                  </div>
+                                </div>
 
-                            {/* Availability Status */}
-                            <div className="pt-2 border-t">
-                              <Badge className={`${getAvailabilityColor(component.available_quantity, component.component_quantity)}`}>
-                                {getAvailabilityText(component.available_quantity, component.component_quantity)}
-                              </Badge>
+                                {component?.component_specification && (
+                                  <div className="space-y-2">
+                                    <h4 className="font-medium text-sm">Specifications</h4>
+                                    <p className="text-sm text-gray-700 whitespace-pre-line">{component?.component_specification}</p>
+                                  </div>
+                                )}
+                                {component?.component_description && (
+                                  <div className="space-y-2">
+                                    <h4 className="font-medium text-sm">Description</h4>
+                                    <p className="text-sm text-gray-700 whitespace-pre-line">{component?.component_description}</p>
+                                  </div>
+                                )}
+
+                              </div>
+                            </div>
+                            {/* Right: Image Preview */}
+                            <div className="flex-1 flex flex-col items-center justify-center min-w-0">
+                              <div className="relative w-full max-w-xs aspect-square bg-gray-50 rounded-lg border flex items-center justify-center overflow-hidden">
+                                {component.image_url || component.back_image_url ? (
+                                  <>
+                                    <img
+                                      src={showBack && component.back_image_url ? component.back_image_url : component.image_url || '/placeholder.jpg'}
+                                      alt={showBack ? `Back view of ${component.component_name}` : `Front view of ${component.component_name}`}
+                                      className="object-contain w-full h-full"
+                                      onError={e => { e.currentTarget.src = '/placeholder.jpg'; }}
+                                    />
+                                    {component.back_image_url && component.image_url && (
+                                      <>
+                                        {/* Left arrow (show only when on back) */}
+                                        {showBack && (
+                                          <button
+                                            className="absolute left-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/80 hover:bg-white shadow flex items-center justify-center border z-10"
+                                            onClick={() => setShowBack(false)}
+                                            type="button"
+                                            aria-label="Show Front"
+                                          >
+                                            <ChevronLeft className="h-6 w-6" />
+                                          </button>
+                                        )}
+                                        {/* Right arrow (show only when on front) */}
+                                        {!showBack && (
+                                          <button
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/80 hover:bg-white shadow flex items-center justify-center border z-10"
+                                            onClick={() => setShowBack(true)}
+                                            type="button"
+                                            aria-label="Show Back"
+                                          >
+                                            <ChevronRight className="h-6 w-6" />
+                                          </button>
+                                        )}
+                                      </>
+                                    )}
+                                  </>
+                                ) : (
+                                  <div className="text-center text-gray-400">
+                                    <Package className="h-12 w-12 mx-auto mb-2" />
+                                    <p className="text-sm">No image available</p>
+                                  </div>
+                                )}
+                              </div>
+                              {/* Image indicator */}
+                              {component.image_url && component.back_image_url && (
+                                <div className="flex justify-center mt-3 space-x-2">
+                                  <button
+                                    onClick={() => setShowBack(false)}
+                                    className={`w-2 h-2 rounded-full transition-colors ${
+                                      !showBack ? 'bg-gray-600' : 'bg-gray-300'
+                                    }`}
+                                    aria-label="Front view"
+                                  />
+                                  <button
+                                    onClick={() => setShowBack(true)}
+                                    className={`w-2 h-2 rounded-full transition-colors ${
+                                      showBack ? 'bg-gray-600' : 'bg-gray-300'
+                                    }`}
+                                    aria-label="Back view"
+                                  />
+                                </div>
+                              )}
                             </div>
                           </div>
                         )

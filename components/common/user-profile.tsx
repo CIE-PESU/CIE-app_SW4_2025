@@ -2,7 +2,7 @@ import React from "react";
 import { useAuth } from "@/components/auth-provider";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Mail, Phone, MapPin, BookOpen, Users, Calendar, BadgeIcon as IdCard, User as UserIcon, Camera, FilePlus, FileText, Download, Trash2 } from "lucide-react";
+import { Mail, Phone, MapPin, BookOpen, Users, Calendar, BadgeIcon as IdCard, User as UserIcon, Camera, FilePlus, FileText, Download, Trash2, GraduationCap, Award } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -233,8 +233,17 @@ export function UserProfile() {
           <div className="relative">
             <Avatar className="h-28 w-28 ring-4 ring-blue-200 shadow-lg rounded-full">
               <AvatarImage 
-                src={previewImage || user?.image || undefined} 
-                alt={user?.name || 'User avatar'} 
+                src={previewImage || (user?.role === 'FACULTY' && user?.profileData?.faculty_id ? `/profile-img/${user.profileData.faculty_id}.jpg` : user?.image) || undefined} 
+                alt={user?.name || 'User avatar'}
+                onError={(e) => {
+                  // Try different extensions if jpg fails
+                  const currentSrc = e.currentTarget.src;
+                  if (currentSrc.includes('.jpg') && !previewImage) {
+                    e.currentTarget.src = currentSrc.replace('.jpg', '.jpeg');
+                  } else if (currentSrc.includes('.jpeg') && !previewImage) {
+                    e.currentTarget.src = currentSrc.replace('.jpeg', '.png');
+                  }
+                }}
               />
               <AvatarFallback className="text-4xl font-bold bg-blue-100 text-blue-700">
                 {user?.name?.charAt(0).toUpperCase() || 'U'}
@@ -254,12 +263,42 @@ export function UserProfile() {
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={(e)=>{
+              onChange={async (e)=>{
                 const file = e.target.files?.[0];
-                if(file){
+                if(file && user){
                   const url = URL.createObjectURL(file);
                   setPreviewImage(url);
-                  // TODO: send to backend
+                  
+                  // Upload the image if user is faculty
+                  if (user.role === 'FACULTY' && user.profileData?.id) {
+                    try {
+                      const formData = new FormData();
+                      formData.append('file', file);
+                      formData.append('facultyId', user.profileData.id);
+                      
+                      const response = await fetch('/api/faculty/upload', {
+                        method: 'POST',
+                        body: formData,
+                      });
+                      
+                      if (response.ok) {
+                        toast({
+                          title: "Success",
+                          description: "Profile image updated successfully",
+                        });
+                      } else {
+                        throw new Error('Upload failed');
+                      }
+                    } catch (error) {
+                      console.error('Image upload error:', error);
+                      toast({
+                        title: "Error",
+                        description: "Failed to upload profile image",
+                        variant: "destructive",
+                      });
+                      setPreviewImage(null);
+                    }
+                  }
                 }
               }}
             />
@@ -309,10 +348,11 @@ export function UserProfile() {
 
                 {isStudentProfile(profile) && (
                     <>
+                        <ProfileRow label="Student ID" icon={IdCard} value={profile.student_id} />
                         <ProfileRow label="Program" icon={BookOpen} value={profile.program} />
                         <ProfileRow label="Year & Section" icon={Users} value={`${profile.year} - ${profile.section}`} />
                         <ProfileRow label="Advisor" icon={UserIcon} value={profile.advisor} />
-                        <ProfileRow label="GPA" icon={IdCard} value={profile.gpa} />
+                        <ProfileRow label="GPA" icon={Award} value={profile.gpa} />
                     </>
                 )}
               </tbody>

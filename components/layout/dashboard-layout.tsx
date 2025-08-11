@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import {
   GraduationCap,
@@ -30,10 +30,18 @@ import {
   Moon,
   Sun,
   Bell,
+  BarChart3,
+  Award,
+  Briefcase,
+  Wrench,
+  FolderOpen,
+  ClipboardCheck,
 } from "lucide-react"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { useTheme } from 'next-themes'
+import { NotificationDropdown } from "@/components/ui/notification-dropdown"
+import { useNotifications } from "@/components/notification-provider"
 
 interface DashboardLayoutProps {
   children: ReactNode
@@ -43,6 +51,7 @@ interface DashboardLayoutProps {
     id: string
     label: string
     icon: React.ComponentType<any>
+    disabled?: boolean
   }>
 }
 
@@ -116,6 +125,10 @@ export function DashboardLayout({ children, currentPage, onPageChange, menuItems
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const { theme, setTheme } = useTheme()
+  const { activities, unreadActivities, loading } = useNotifications()
+
+  // Only disable scrolling for dashboard home pages (case-insensitive)
+  const isDashboardHome = ["home", "dashboard"].includes(currentPage.toLowerCase());
 
   const sidebarWidth = sidebarCollapsed ? "w-16" : "w-64"
   const mainMargin = sidebarCollapsed ? "lg:ml-16" : "lg:ml-64"
@@ -167,16 +180,6 @@ export function DashboardLayout({ children, currentPage, onPageChange, menuItems
           specialization: "Software Engineering",
           office_hours: "Mon-Wed-Fri: 2:00 PM - 4:00 PM",
         }
-      case "PROFESSOR":
-        return {
-          ...baseData,
-          role: "professor" as const,
-          department: "Computer Science",
-          office: "Engineering Building, Room 210",
-          assigned_courses: ["CS102 - Programming Fundamentals", "CS202 - Object Oriented Programming"],
-          specialization: "Database Systems",
-          office_hours: "Tue-Thu: 1:00 PM - 3:00 PM",
-        }
       case "STUDENT":
         return {
           ...baseData,
@@ -204,16 +207,50 @@ export function DashboardLayout({ children, currentPage, onPageChange, menuItems
 
   const profileData = getProfileData()
 
+  // Get role-specific quick actions
+  const getQuickActions = () => {
+    if (!user) return []
+    
+    switch (user.role) {
+      case "ADMIN":
+        return [
+          { id: "domains", label: "Coordinators", icon: Award },
+          { id: "faculty", label: "Faculty", icon: Briefcase },
+          { id: "students", label: "Students", icon: Users },
+          { id: "locations", label: "Room Bookings", icon: MapPin },
+        ]
+      case "FACULTY":
+        return [
+          { id: "coordinator", label: "CIE Coordinator", icon: Award },
+          { id: "projects", label: "Projects", icon: FolderOpen },
+          { id: "locations", label: "Book Room", icon: MapPin },
+          { id: "lab-components", label: "Lab Components", icon: Wrench },
+          { id: "library", label: "Library", icon: BookOpen },
+        ]
+      case "STUDENT":
+        return [
+          { id: "projects", label: "Projects", icon: FolderOpen },
+          { id: "lab-components", label: "Lab Components", icon: Wrench },
+          { id: "library", label: "Library", icon: BookOpen },
+          { id: "attendance", label: "Attendance", icon: ClipboardCheck },
+        ]
+      default:
+        return []
+    }
+  }
+
+  const quickActions = getQuickActions()
+
   const handleSignOut = () => {
     logout()
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-dark5 dark:text-dark1">
+    <div className={cn("min-h-screen bg-white dark:bg-dark5 dark:text-dark1", isDashboardHome ? "overflow-hidden" : "overflow-auto") }>
       {/* Navbar */}
       <div
         className={cn(
-          "fixed top-0 right-0 left-0 h-16 bg-white dark:bg-dark4 border-b border-gray-200 dark:border-dark3 z-30 transition-all duration-300",
+          "fixed top-0 right-0 left-0 h-20 bg-[#e3f0ff] dark:bg-dark4 border-b border-gray-200 dark:border-dark3 z-30 transition-all duration-300",
           sidebarCollapsed ? "lg:left-16" : "lg:left-64",
         )}
       >
@@ -225,10 +262,7 @@ export function DashboardLayout({ children, currentPage, onPageChange, menuItems
             </Button>
           </div>
 
-          {/* Spacer for desktop to push profile to the right */}
-          <div className="hidden lg:block flex-1" />
-
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 justify-end flex-1">
             {/* Dark mode toggle button */}
             <Button
               variant="ghost"
@@ -239,9 +273,7 @@ export function DashboardLayout({ children, currentPage, onPageChange, menuItems
               {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </Button>
 
-            <Button variant="ghost" size="icon" aria-label="Notifications">
-              <Bell className="h-5 w-5" />
-            </Button>
+            <NotificationDropdown activities={activities} loading={loading} onPageChange={onPageChange} />
 
             {/* Profile dropdown */}
             <DropdownMenu>
@@ -250,11 +282,24 @@ export function DashboardLayout({ children, currentPage, onPageChange, menuItems
                   <div className="flex items-center space-x-2">
                     <div className="text-right">
                       <p className="font-medium text-gray-900 text-sm">{user?.name}</p>
-                      <p className="text-xs leading-none text-muted-foreground">
+                      <p className="text-xs leading-none text-muted-foreground dark:text-white">
                         {user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1).toLowerCase() : ''}
                       </p>
                     </div>
                     <Avatar className="h-8 w-8">
+                      <AvatarImage 
+                        src={user?.role === 'FACULTY' && user?.profileData?.faculty_id ? `/profile-img/${user.profileData.faculty_id}.jpg` : undefined}
+                        alt={user?.name || 'User avatar'}
+                        onError={(e) => {
+                          // Try different extensions if jpg fails
+                          const currentSrc = e.currentTarget.src;
+                          if (currentSrc.includes('.jpg')) {
+                            e.currentTarget.src = currentSrc.replace('.jpg', '.jpeg');
+                          } else if (currentSrc.includes('.jpeg')) {
+                            e.currentTarget.src = currentSrc.replace('.jpeg', '.png');
+                          }
+                        }}
+                      />
                       <AvatarFallback className="bg-blue-100 text-blue-600 font-semibold text-sm">
                         {user?.name.charAt(0)}
                       </AvatarFallback>
@@ -288,7 +333,7 @@ export function DashboardLayout({ children, currentPage, onPageChange, menuItems
           "fixed inset-y-0 left-0 z-40 transform transition-all duration-500 ease-in-out lg:translate-x-0 rounded-r-2xl overflow-hidden shadow-2xl",
           sidebarWidth,
           sidebarOpen ? "translate-x-0" : "-translate-x-full",
-          "bg-gradient-to-b from-blue-100 to-indigo-100 dark:bg-dark4 dark:text-dark1"
+          "bg-[#e3f0ff] dark:bg-sidebar text-sidebar-foreground"
         )}
         style={{
           boxShadow: '4px 0 15px rgba(0, 0, 0, 0.1)'
@@ -328,23 +373,32 @@ export function DashboardLayout({ children, currentPage, onPageChange, menuItems
               >
                 <button
                   className={cn(
-                    "w-full flex items-center p-3 transition-all duration-200 rounded-lg mx-1 transform hover:scale-105 focus:scale-105",
+                    "w-full flex items-center p-3 transition-all duration-200 rounded-lg mx-1",
                     sidebarCollapsed ? "justify-center px-2" : "px-4",
-                    currentPage === item.id
-                      ? "bg-indigo-200 text-indigo-800 font-medium shadow-sm"
-                      : "text-gray-800 hover:bg-blue-100 hover:text-indigo-800 dark:text-dark1"
+                    item.disabled 
+                      ? "text-gray-400 cursor-not-allowed opacity-50" 
+                      : currentPage === item.id
+                        ? "bg-indigo-200 text-indigo-800 font-medium shadow-sm transform hover:scale-105 focus:scale-105"
+                        : "text-gray-800 hover:bg-blue-100 hover:text-indigo-800 dark:text-dark1 transform hover:scale-105 focus:scale-105"
                   )}
                   onClick={() => {
-                    onPageChange(item.id)
-                    setSidebarOpen(false)
+                    if (!item.disabled) {
+                      onPageChange(item.id)
+                      setSidebarOpen(false)
+                    }
                   }}
                   title={sidebarCollapsed ? item.label : undefined}
+                  disabled={item.disabled}
                 >
                   <item.icon 
                     className={cn(
                       "h-5 w-5 transition-transform duration-300",
                       !sidebarCollapsed && "mr-3",
-                      currentPage === item.id ? "text-blue-600" : "text-gray-600 dark:text-dark1"
+                      item.disabled 
+                        ? "text-gray-400" 
+                        : currentPage === item.id 
+                          ? "text-blue-600" 
+                          : "text-gray-600 dark:text-dark1"
                     )} 
                   />
                   {!sidebarCollapsed && (
@@ -399,9 +453,11 @@ export function DashboardLayout({ children, currentPage, onPageChange, menuItems
       </div>
 
       {/* Main content */}
-      <div className={cn("transition-all duration-300", mainMargin)}>
-        <div className="pt-16">
-          <div className="p-4 lg:p-8 rounded-tl-2xl min-h-[calc(100vh-4rem)]">{children}</div>
+      <div className={cn("transition-all duration-300", isDashboardHome ? "overflow-hidden" : "overflow-auto", mainMargin)}>
+        <div className={cn("pt-16", isDashboardHome ? "overflow-hidden" : "overflow-auto") }>
+          <div className={cn("p-4 lg:p-8 rounded-tl-2xl min-h-[calc(100vh-4rem)]", isDashboardHome ? "overflow-hidden" : "overflow-auto") }>
+            {children}
+          </div>
         </div>
       </div>
 

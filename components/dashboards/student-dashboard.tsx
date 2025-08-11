@@ -13,17 +13,18 @@ import { UserProfile } from "@/components/common/user-profile"
 import { LibraryDashboard } from "@/components/pages/common/library-dashboard"
 import { StudentRequestHistory } from "@/components/pages/student/request-history"
 import StudentOpportunity from '@/components/pages/student/student-opportunity';
+import { NotificationsPage } from "@/components/pages/common/notifications-page"
 
 const menuItems = [
   { id: "home", label: "Dashboard", icon: Home },
-  { id: "locations", label: "Class Locations", icon: MapPin },
   { id: "calendar", label: "Calendar", icon: Calendar },
   { id: "courses", label: "Courses", icon: BookOpen },
   { id: "projects", label: "Projects", icon: FolderOpen },
-  { id: "attendance", label: "Attendance", icon: ClipboardCheck },
   { id: "lab-components", label: "Lab Components", icon: Wrench },
   { id: "library", label: "Library", icon: BookOpen },
   { id: "opportunities", label: "Opportunities", icon: Briefcase },
+  { id: "attendance", label: "Attendance", icon: ClipboardCheck, disabled: true },
+  { id: "locations", label: "Class Locations", icon: MapPin, disabled: true },
 ]
 
 export function StudentDashboard() {
@@ -58,6 +59,8 @@ export function StudentDashboard() {
         return <LibraryDashboard />
       case "opportunities":
         return <StudentOpportunity />
+      case "notifications":
+        return <NotificationsPage />
       default:
         return <StudentHome onPageChange={setCurrentPage} />
     }

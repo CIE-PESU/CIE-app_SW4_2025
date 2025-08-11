@@ -17,7 +17,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Package, Trash2, RefreshCw, Edit, ChevronRight, ChevronLeft, Info, Receipt, History, Image } from "lucide-react"
+import { Plus, Package, Trash2, RefreshCw, Edit, ChevronRight, ChevronLeft, Info, Receipt, History, Image, Search, Filter, Settings } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/components/auth-provider"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -49,6 +49,12 @@ interface LibraryItem {
   availableQuantity?: number
 }
 
+interface SpecificationRow {
+  id: string
+  attribute: string
+  value: string
+}
+
 // Utility functions for formatting
 function toTitleCase(str: string) {
   return str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase())
@@ -74,6 +80,14 @@ export function ManageLibrary() {
   const [loading, setLoading] = useState(true)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
+  const [selectedCategory, setSelectedCategory] = useState("all")
+  
+  // Specification table state
+  const [specificationRows, setSpecificationRows] = useState<SpecificationRow[]>([
+    { id: '1', attribute: '', value: '' },
+    { id: '2', attribute: '', value: '' },
+    { id: '3', attribute: '', value: '' }
+  ])
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<LibraryItem | null>(null)
   const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false)
@@ -119,11 +133,16 @@ export function ManageLibrary() {
   // Add form validation state
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // AI analysis state
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
 
   // Bulk upload state
   const [isBulkUploadDialogOpen, setIsBulkUploadDialogOpen] = useState(false)
   const [bulkUploadFile, setBulkUploadFile] = useState<File | null>(null)
   const [isBulkUploading, setIsBulkUploading] = useState(false)
+
+  const [editMode, setEditMode] = useState(false);
 
   useEffect(() => {
     fetchItems()
@@ -173,6 +192,162 @@ export function ManageLibrary() {
     }
   }, [showAddLocation])
 
+  // Specification table management functions
+  const addSpecificationRow = () => {
+    const newRow: SpecificationRow = {
+      id: Date.now().toString(),
+      attribute: '',
+      value: ''
+    }
+    setSpecificationRows(prev => [...prev, newRow])
+  }
+  
+  const removeSpecificationRow = (id: string) => {
+    setSpecificationRows(prev => prev.filter(row => row.id !== id))
+  }
+  
+  const updateSpecificationRow = (id: string, field: 'attribute' | 'value', value: string) => {
+    setSpecificationRows(prev =>
+      prev.map(row =>
+        row.id === id ? { ...row, [field]: value } : row
+      )
+    )
+  }
+  
+  // Helper function to parse AI specifications into table format
+  const parseSpecificationsToTable = (specs: string): SpecificationRow[] => {
+    const rows: SpecificationRow[] = []
+    let idCounter = 1
+    
+    // Check if specs are in pipe-separated format (from new AI)
+    if (specs.includes('|')) {
+      const attributes = specs.split('|').map(attr => attr.trim()).filter(attr => attr)
+      attributes.forEach(attribute => {
+        // Check if the attribute already contains a value (has colon or equals)
+        const colonIndex = attribute.indexOf(':')
+        const equalsIndex = attribute.indexOf('=')
+        
+        if (colonIndex > 0) {
+          // Format: "Attribute: Value"
+          rows.push({
+            id: (idCounter++).toString(),
+            attribute: attribute.substring(0, colonIndex).trim(),
+            value: attribute.substring(colonIndex + 1).trim()
+          })
+        } else if (equalsIndex > 0) {
+          // Format: "Attribute = Value"
+          rows.push({
+            id: (idCounter++).toString(),
+            attribute: attribute.substring(0, equalsIndex).trim(),
+            value: attribute.substring(equalsIndex + 1).trim()
+          })
+        } else {
+          // Just attribute name, provide helpful placeholder value
+          const getPlaceholderValue = (attr: string) => {
+            const attrLower = attr.toLowerCase();
+            if (attrLower.includes('author')) return 'e.g., John Smith';
+            if (attrLower.includes('publisher')) return 'e.g., Tech Books';
+            if (attrLower.includes('edition')) return 'e.g., 3rd Edition';
+            if (attrLower.includes('isbn')) return 'e.g., 978-1234567890';
+            if (attrLower.includes('pages')) return 'e.g., 450';
+            if (attrLower.includes('year')) return 'e.g., 2023';
+            if (attrLower.includes('language')) return 'e.g., English';
+            if (attrLower.includes('binding')) return 'e.g., Paperback';
+            if (attrLower.includes('subject')) return 'e.g., Computer Science';
+            if (attrLower.includes('level')) return 'e.g., Undergraduate';
+            return 'Please specify';
+          };
+          
+          rows.push({
+            id: (idCounter++).toString(),
+            attribute: attribute,
+            value: getPlaceholderValue(attribute)
+          })
+        }
+      })
+    } else {
+      // Legacy format - split by common delimiters and parse
+      const lines = specs.split(/[.\n;]/).filter(line => line.trim())
+      
+      lines.forEach(line => {
+        const trimmedLine = line.trim()
+        if (trimmedLine) {
+          // Try to extract attribute-value pairs
+          const patterns = [
+            /([^:]+):\s*(.+)/,  // "Attribute: Value"
+            /([^=]+)=\s*(.+)/,  // "Attribute = Value"
+            /(\w+(?:\s+\w+)*)\s+(.+)/  // "Attribute Value"
+          ]
+          
+          for (const pattern of patterns) {
+            const match = trimmedLine.match(pattern)
+            if (match) {
+              rows.push({
+                id: (idCounter++).toString(),
+                attribute: match[1].trim(),
+                value: match[2].trim()
+              })
+              break
+            }
+          }
+        }
+      })
+      
+      // If no patterns matched, add the whole spec as a single row
+      if (rows.length === 0) {
+        rows.push({
+          id: '1',
+          attribute: 'Description',
+          value: specs
+        })
+      }
+    }
+    
+    // Sort specifications by importance (most important first)
+    const getLibrarySpecPriority = (attribute: string): number => {
+      const attr = attribute.toLowerCase()
+      // Higher number = higher priority (will appear first)
+      if (attr.includes('author') || attr.includes('writer')) return 10
+      if (attr.includes('isbn')) return 9
+      if (attr.includes('publisher') || attr.includes('publication')) return 8
+      if (attr.includes('edition')) return 7
+      if (attr.includes('year') || attr.includes('date')) return 6
+      if (attr.includes('pages') || attr.includes('page')) return 5
+      if (attr.includes('language')) return 4
+      if (attr.includes('binding') || attr.includes('format')) return 3
+      if (attr.includes('subject') || attr.includes('topic')) return 2
+      return 1 // Default priority for other specs
+    }
+    
+    // Sort rows with actual content by priority
+    const filledRows = rows.filter(row => row.attribute.trim() || row.value.trim())
+    const emptyRows = rows.filter(row => !row.attribute.trim() && !row.value.trim())
+    
+    filledRows.sort((a, b) => getLibrarySpecPriority(b.attribute) - getLibrarySpecPriority(a.attribute))
+    
+    // Combine sorted filled rows with empty rows
+    const sortedRows = [...filledRows, ...emptyRows]
+    
+    // Always ensure we have at least 3 rows, but allow AI to add more
+    while (sortedRows.length < 3) {
+      sortedRows.push({
+        id: (idCounter++).toString(),
+        attribute: '',
+        value: ''
+      })
+    }
+    
+    return sortedRows
+  }
+  
+  // Convert specification rows to string format for API
+  const convertSpecificationsToString = (): string => {
+    return specificationRows
+      .filter(row => row.attribute.trim() || row.value.trim())
+      .map(row => `${row.attribute}: ${row.value}`)
+      .join('. ')
+  }
+  
   // Click-outside detection for category input
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -218,7 +393,7 @@ export function ManageLibrary() {
       console.error("Error fetching items:", error)
       toast({
         title: "Error",
-        description: "Failed to load library items",
+        description: "Failed to load Books",
         variant: "destructive",
       })
     } finally {
@@ -276,10 +451,17 @@ export function ManageLibrary() {
   };
 
   const filteredItems = items.filter(
-    (item) =>
-      (item.item_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-      (item.item_category?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-      (item.item_location?.toLowerCase() || '').includes(searchTerm.toLowerCase()),
+    (item) => {
+      const matchesSearch = 
+        (item.item_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+        (item.item_category?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+        (item.item_location?.toLowerCase() || '').includes(searchTerm.toLowerCase())
+      
+      const matchesCategory = selectedCategory === "all" || 
+        (item.item_category?.toLowerCase() || '') === selectedCategory.toLowerCase()
+      
+      return matchesSearch && matchesCategory
+    }
   )
 
   const handleAddItem = async () => {
@@ -409,7 +591,7 @@ export function ManageLibrary() {
 
         toast({
           title: "Success",
-          description: "Library item added successfully",
+          description: "Book added successfully",
         })
       } else {
         const errorData = await response.json()
@@ -425,6 +607,80 @@ export function ManageLibrary() {
     } finally {
       setIsSubmitting(false)
       console.log('Library item submission finished')
+    }
+  }
+
+  // AI Analysis function
+  const handleAIAnalysis = async () => {
+    if (!frontImageFile || !backImageFile) {
+      toast({
+        title: "Error",
+        description: "Both front and back images are required for AI analysis",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsAnalyzing(true)
+    
+    try {
+      const formData = new FormData()
+      formData.append('frontImage', frontImageFile)
+      formData.append('backImage', backImageFile)
+      formData.append('itemType', 'library') // Specify this is for library items
+
+      const response = await fetch('/api/ai-analyze-images', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to analyze images')
+      }
+
+      const data = await response.json()
+      
+      if (data.status === 'error') {
+        // Handle validation errors (wrong item type)
+        toast({
+          title: "Invalid Item Type",
+          description: data.error || "Please upload images of library books only, not lab components.",
+          variant: "destructive",
+        })
+        return
+      }
+      
+      if (data.status === 'success' && data.result) {
+        setNewItem(prev => ({
+          ...prev,
+          item_name: data.result.name,
+          item_description: data.result.description,
+          item_specification: data.result.specifications
+        }))
+        
+        // Parse AI specifications into table format if possible
+        if (data.result.specifications) {
+          const parsedSpecs = parseSpecificationsToTable(data.result.specifications)
+          setSpecificationRows(parsedSpecs)
+        }
+        
+        toast({
+          title: "AI Analysis Complete",
+          description: "Item name, description and specifications have been generated successfully",
+        })
+      } else {
+        throw new Error(data.error || 'AI analysis failed')
+      }
+      
+    } catch (error) {
+      console.error('AI Analysis Error:', error)
+      toast({
+        title: "AI Analysis Failed",
+        description: error instanceof Error ? error.message : "Failed to analyze images",
+        variant: "destructive",
+      })
+    } finally {
+      setIsAnalyzing(false)
     }
   }
 
@@ -449,6 +705,7 @@ export function ManageLibrary() {
     setBackImagePreview(null)
     setNewCategory("")
     setIsSavingCategory(false)
+    setIsAnalyzing(false)
     setShowAddCategory(false)
     setCategoryToDelete(null)
     setIsDeleteCategoryDialogOpen(false)
@@ -462,6 +719,12 @@ export function ManageLibrary() {
     setImageStates({})
     setFormErrors({})
     setIsSubmitting(false)
+    // Reset specification rows
+    setSpecificationRows([
+      { id: '1', attribute: '', value: '' },
+      { id: '2', attribute: '', value: '' },
+      { id: '3', attribute: '', value: '' }
+    ])
   }
 
   // Bulk upload functions
@@ -778,6 +1041,7 @@ export function ManageLibrary() {
         },
         body: JSON.stringify({
           ...editingItem,
+          item_specification: convertSpecificationsToString(),
           front_image_id: frontImageId,
           back_image_id: backImageId,
           modified_by: user?.name || "system-fallback",
@@ -794,7 +1058,7 @@ export function ManageLibrary() {
         setIsAddDialogOpen(false)
         toast({
           title: "Success",
-          description: "Library item updated successfully",
+          description: "Book updated successfully",
         })
       } else {
         const errorData = await response.json()
@@ -1021,21 +1285,27 @@ export function ManageLibrary() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-lg">Loading library items...</div>
+        <div className="text-lg">Loading library books...</div>
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center mb-4">
         <div>
-          <h3 className="text-3xl font-bold text-gray-900">Library Books Management</h3>
+          <h1 className="admin-page-title">Library Management</h1>
         </div>
         <div className="flex space-x-2">
           <Button onClick={fetchItems} variant="outline">
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
+          </Button>
+          <Button
+            variant={editMode ? "default" : "outline"}
+            onClick={() => setEditMode((v) => !v)}
+          >
+            {editMode ? "Editing..." : "Edit Mode"}
           </Button>
           <Dialog open={isBulkUploadDialogOpen} onOpenChange={setIsBulkUploadDialogOpen}>
             <DialogTrigger asChild>
@@ -1046,9 +1316,9 @@ export function ManageLibrary() {
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Bulk Upload Library Items</DialogTitle>
+                <DialogTitle>Bulk Upload Books</DialogTitle>
                 <DialogDescription>
-                  Upload a CSV file to add multiple library items at once. 
+                  Upload a CSV file to add multiple books at once. 
                   <br />
                   <a 
                     href="#" 
@@ -1104,8 +1374,8 @@ export function ManageLibrary() {
           }}>
             <DialogTrigger asChild>
               <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Item
+                <Plus className="h-4 w-2 mr-2" />
+                Add Books
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-7xl w-full max-h-[98vh] overflow-hidden">
@@ -1304,8 +1574,20 @@ export function ManageLibrary() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Book Images</h3>
-                      <Button variant="outline" size="sm" type="button" className="h-8">
-                        <img src="/genAI_icon.png" alt="GenAI" className="h-7 w-7" />
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        type="button" 
+                        className="h-8"
+                        onClick={handleAIAnalysis}
+                        disabled={!frontImageFile || !backImageFile || isAnalyzing}
+                        title={!frontImageFile || !backImageFile ? "Upload both front and back images first" : "Analyze images with AI"}
+                      >
+                        {isAnalyzing ? (
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <img src="/genAI_icon.png" alt="GenAI" className="h-7 w-7" />
+                        )}
                       </Button>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -1383,22 +1665,59 @@ export function ManageLibrary() {
                         onChange={e => editingItem
                           ? setEditingItem((prev) => prev && { ...prev, item_description: e.target.value })
                           : setNewItem((prev) => ({ ...prev, item_description: e.target.value }))}
-                        rows={3} 
-                        className={`mt-1 ${formErrors.item_description ? 'border-red-500' : ''}`} 
+                        rows={4} 
+                        className={`mt-1 resize-none leading-relaxed ${formErrors.item_description ? 'border-red-500' : ''}`} 
+                        placeholder="Describe the book's subject matter, target audience, and key topics (max 250 characters)"
+                        maxLength={250}
                       />
-                      {formErrors.item_description && <p className="text-red-500 text-xs mt-1">{formErrors.item_description}</p>}
+                      <div className="flex justify-between items-center mt-1">
+                        {formErrors.item_description && <p className="text-red-500 text-xs">{formErrors.item_description}</p>}
+                        <p className="text-xs text-gray-500 ml-auto">{(editingItem ? editingItem.item_description : newItem.item_description).length}/250 characters</p>
+                      </div>
                     </div>
                     <div>
-                      <Label htmlFor="specifications">Specifications</Label>
-                      <Textarea 
-                        id="specifications" 
-                        value={editingItem ? editingItem.item_specification : newItem.item_specification} 
-                        onChange={e => editingItem
-                          ? setEditingItem((prev) => prev && { ...prev, item_specification: e.target.value })
-                          : setNewItem((prev) => ({ ...prev, item_specification: e.target.value }))}
-                        rows={3} 
-                        className="mt-1" 
-                      />
+                      <div className="flex items-center justify-between">
+                        <Label>Specifications</Label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={addSpecificationRow}
+                          className="h-6 w-6 p-0"
+                          title="Add specification row"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <div className="mt-2 space-y-2 h-28 overflow-y-auto">
+                        {specificationRows.map((row, index) => (
+                          <div key={row.id} className="flex items-center space-x-2">
+                            <Input
+                              placeholder=""
+                              value={row.attribute}
+                              onChange={(e) => updateSpecificationRow(row.id, 'attribute', e.target.value)}
+                              className="flex-1 h-8 text-sm"
+                            />
+                            <Input
+                              placeholder=""
+                              value={row.value}
+                              onChange={(e) => updateSpecificationRow(row.id, 'value', e.target.value)}
+                              className="flex-1 h-8 text-sm"
+                            />
+                            {specificationRows.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => removeSpecificationRow(row.id)}
+                                className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                   <div className="space-y-3">
@@ -1518,43 +1837,78 @@ export function ManageLibrary() {
           </Dialog>
         </div>
       </div>
-      {/* Inventory Tab */}
+
+      <div className="flex flex-wrap gap-2 items-center mb-4 pb-1">
+        <div className="relative w-full md:w-1/2 lg:w-1/3">
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400">
+            <Search className="h-4 w-4" />
+          </span>
+          <Input
+            placeholder="Search books..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-8 pr-2 h-9 w-full text-sm"
+          />
+        </div>
+        <span className="flex items-center ml-4 mr-1 text-gray-400"><Filter className="h-5 w-5" /></span>
+        <span className="text-sm text-gray-600 font-medium ml-1">Category</span>
+        <div className="w-40 flex flex-col">
+          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <SelectTrigger className="h-9 text-sm">
+              <SelectValue placeholder="Category">{selectedCategory !== "all" ? selectedCategory : undefined}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {categoryOptions.map((category) => (
+                <SelectItem key={category} value={category}>
+                  {category}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         {filteredItems.length === 0 ? (
           <Card className="col-span-full">
             <CardContent className="p-8 text-center">
               <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No items found</h3>
-              <p className="text-gray-600">Add your first library item to get started.</p>
+              <p className="text-gray-600">Add your first book to get started.</p>
             </CardContent>
           </Card>
         ) : (
           filteredItems.map((item) => (
-            <Card key={item.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Package className="h-5 w-5 text-gray-500" />
-                    <h3 className="text-lg font-semibold">{item.item_name}</h3>
+            <Card key={item.id} className="flex flex-col h-full hover:shadow-md transition-shadow duration-200">
+              <CardHeader className="p-3">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="flex items-center space-x-2 text-sm">
+                      <Package className="h-4 w-4 flex-shrink-0" />
+                      <span className="truncate">{item.item_name}</span>
+                    </CardTitle>
+                    <CardDescription className="text-xs">{item.item_category}</CardDescription>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setItemToView(item)
-                      setIsInfoDialogOpen(true)
-                    }}
-                    className="text-blue-600 hover:text-blue-700"
-                  >
-                    <Info className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center space-x-1 flex-shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-gray-400 hover:text-gray-600"
+                      onClick={() => {
+                        setItemToView(item)
+                        setIsInfoDialogOpen(true)
+                      }}
+                    >
+                      <Info className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {/* Image Display with Fade Animation */}
+              <CardContent className="flex-grow flex flex-col p-3 pt-0">
+                <div className="space-y-3 flex-grow">
+                  {/* Image Display */}
                   {(item.imageUrl || item.backImageUrl) && (
-                    <div className="relative w-full h-64">
+                    <div className="relative w-full h-48">
                       {/* Front Image */}
                       <div 
                         className={`absolute inset-0 w-full h-full transition-opacity duration-300 ease-in-out ${
@@ -1564,7 +1918,7 @@ export function ManageLibrary() {
                         <img
                           src={item.imageUrl || '/placeholder.jpg'}
                           alt={`Front view of ${item.item_name}`}
-                          className="w-full h-full object-contain rounded-lg bg-gray-50"
+                          className="w-full h-full object-contain rounded-md bg-gray-50"
                         />
                       </div>
                       {/* Back Image */}
@@ -1577,47 +1931,45 @@ export function ManageLibrary() {
                           <img
                             src={item.backImageUrl}
                             alt={`Back view of ${item.item_name}`}
-                            className="w-full h-full object-contain rounded-lg bg-gray-50"
+                            className="w-full h-full object-contain rounded-md bg-gray-50"
                           />
                         </div>
                       )}
                       {/* Navigation Buttons */}
                       {item.backImageUrl && (
                         <>
-                          {/* Show right arrow when on front image */}
                           {!imageStates[item.id] && (
                             <Button
                               variant="secondary"
                               size="icon"
-                              className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-white/80 hover:bg-white shadow-md z-10"
+                              className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-white/80 hover:bg-white shadow-sm z-10"
                               onClick={() => setImageStates(prev => ({ ...prev, [item.id]: true }))}
                             >
-                              <ChevronRight className="h-4 w-4" />
+                              <ChevronRight className="h-3 w-3" />
                             </Button>
                           )}
-                          {/* Show left arrow when on back image */}
                           {imageStates[item.id] && (
                             <Button
                               variant="secondary"
                               size="icon"
-                              className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-white/80 hover:bg-white shadow-md z-10"
+                              className="absolute left-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-white/80 hover:bg-white shadow-sm z-10"
                               onClick={() => setImageStates(prev => ({ ...prev, [item.id]: false }))}
                             >
-                              <ChevronLeft className="h-4 w-4" />
+                              <ChevronLeft className="h-3 w-3" />
                             </Button>
                           )}
                         </>
                       )}
-                      {/* Image Indicator */}
+                      {/* Image Indicators */}
                       {item.backImageUrl && (
-                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex space-x-1 z-10">
+                        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex space-x-1 z-10">
                           <div 
-                            className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${
+                            className={`w-1 h-1 rounded-full transition-colors duration-300 ${
                               !imageStates[item.id] ? 'bg-white' : 'bg-white/50'
                             }`}
                           />
                           <div 
-                            className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${
+                            className={`w-1 h-1 rounded-full transition-colors duration-300 ${
                               imageStates[item.id] ? 'bg-white' : 'bg-white/50'
                             }`}
                           />
@@ -1625,33 +1977,51 @@ export function ManageLibrary() {
                       )}
                     </div>
                   )}
+                  
+                  <div className="text-xs text-gray-700">
+                    <div className="flex justify-between items-center">
+                      <span><span className="font-medium">Total:</span> {item.item_quantity}</span>
+                      <span><span className="font-medium">Category:</span> {item.item_category}</span>
+                      <span className="text-gray-500"><span className="font-medium">Location:</span> {item.item_location}</span>
+                    </div>
+                  </div>
+                </div>
 
-                  <div className="flex flex-wrap gap-4 items-center text-sm text-gray-700 mb-2">
-                    <div><span className="font-semibold">Total:</span> {item.item_quantity}</div>
-                     <div><span className="font-semibold">Location:</span> {item.item_location}</div>
-                  </div>
-                  <div className="flex space-x-2 pt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setEditingItem(item)
-                        setIsAddDialogOpen(true)
-                      }}
-                    >
-                      <Edit className="h-4 w-4 mr-1" /> Edit
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => {
-                        setItemToDelete(item)
-                        setIsDeleteDialogOpen(true)
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4 mr-1" /> Delete
-                    </Button>
-                  </div>
+                <div className="mt-3">
+                  {editMode && (
+                    <div className="flex space-x-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 h-8 text-xs"
+                        onClick={() => {
+                          setEditingItem(item)
+                          setIsAddDialogOpen(true)
+                          if (item.imageUrl) {
+                            setFrontImagePreview(item.imageUrl)
+                          }
+                          if (item.backImageUrl) {
+                            setBackImagePreview(item.backImageUrl)
+                          }
+                        }}
+                      >
+                        <Edit className="h-3 w-3 mr-1" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 h-8 text-xs text-red-600 hover:text-red-700"
+                        onClick={() => {
+                          setItemToDelete(item)
+                          setIsDeleteDialogOpen(true)
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Delete
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -1670,8 +2040,10 @@ export function ManageLibrary() {
           </DialogHeader>
           {itemToView && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Left Column: Basic Information */}
-              <div className="bg-blue-50 rounded-lg p-3">
+              {/* Left Column: Basic Information + Audit Trail */}
+              <div className="space-y-3">
+                {/* Basic Information */}
+                <div className="bg-blue-50 rounded-lg p-3">
                 <h3 className="text-base font-semibold text-blue-900 mb-2 flex items-center gap-2">
                   <Package className="h-4 w-4" />
                   Basic Information
@@ -1703,16 +2075,82 @@ export function ManageLibrary() {
                   <Label className="text-xs font-medium text-gray-500">Description</Label>
                   <div className="text-xs text-gray-700 mt-1">{itemToView.item_description}</div>
                 </div>
-                {itemToView.item_specification && (
-                  <div className="mt-2">
-                    <Label className="text-xs font-medium text-gray-500">Specification</Label>
-                    <div className="text-xs text-gray-700 mt-1">{itemToView.item_specification}</div>
+              </div>
+
+              {/* Audit Trail - Separate Section */}
+              <div className="bg-gray-50 rounded-lg p-3">
+                <h3 className="text-base font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                  <History className="h-4 w-4" />
+                  Audit Trail
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-medium text-gray-500">Created By</Label>
+                    <div className="text-sm text-gray-900">{itemToView.created_by || '-'}</div>
                   </div>
-                )}
+                  <div>
+                    <Label className="text-xs font-medium text-gray-500">Created At</Label>
+                    <div className="text-sm text-gray-900">
+                      {itemToView.created_at ? new Date(itemToView.created_at).toLocaleDateString() : '-'}
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs font-medium text-gray-500">Last Modified By</Label>
+                    <div className="text-sm text-gray-900">{itemToView.modified_by || '-'}</div>
+                  </div>
+                  <div>
+                    <Label className="text-xs font-medium text-gray-500">Last Modified At</Label>
+                    <div className="text-sm text-gray-900">
+                      {itemToView.modified_at ? new Date(itemToView.modified_at).toLocaleDateString() : '-'}
+                    </div>
+                  </div>
+                </div>
+              </div>
               </div>
               
-              {/* Right Column: Purchase Details and Audit Trail */}
+              {/* Right Column: Specifications and Purchase Details */}
               <div className="space-y-3">
+                {/* Specifications */}
+                {itemToView.item_specification && (
+                  <div className="bg-green-50 rounded-lg p-3">
+                    <h3 className="text-base font-semibold text-green-900 mb-2 flex items-center gap-2">
+                      <Settings className="h-4 w-4" />
+                      Specifications
+                    </h3>
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                      {itemToView.item_specification.split('.').map((spec, index) => {
+                        if (!spec.trim()) return null
+                        const [attribute, value] = spec.split(':').map(s => s.trim())
+                        if (!attribute || !value) return null
+                        return { attribute, value, originalIndex: index }
+                      })
+                      .filter(Boolean)
+                      .sort((a, b) => {
+                        const getLibrarySpecPriority = (attribute: string): number => {
+                          const attr = attribute.toLowerCase()
+                          if (attr.includes('author') || attr.includes('writer')) return 10
+                          if (attr.includes('isbn')) return 9
+                          if (attr.includes('publisher') || attr.includes('publication')) return 8
+                          if (attr.includes('edition')) return 7
+                          if (attr.includes('year') || attr.includes('date')) return 6
+                          if (attr.includes('pages') || attr.includes('page')) return 5
+                          if (attr.includes('language')) return 4
+                          if (attr.includes('binding') || attr.includes('format')) return 3
+                          if (attr.includes('subject') || attr.includes('topic')) return 2
+                          return 1
+                        }
+                        return getLibrarySpecPriority(b.attribute) - getLibrarySpecPriority(a.attribute)
+                      })
+                      .map((spec, index) => (
+                        <div key={index} className="grid grid-cols-2 gap-2 text-xs border-b border-gray-100 pb-1">
+                          <div className="font-medium text-gray-600">{spec.attribute}</div>
+                          <div className="text-gray-700">{spec.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
                 {/* Purchase Details */}
                 <div className="bg-gray-50 rounded-lg p-3">
                   <h3 className="text-base font-semibold text-gray-900 mb-2 flex items-center gap-2">
@@ -1744,36 +2182,6 @@ export function ManageLibrary() {
                     </div>
                   </div>
                 </div>
-                
-                {/* Audit Trail */}
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <h3 className="text-base font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                    <History className="h-4 w-4" />
-                    Audit Trail
-                  </h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-xs font-medium text-gray-500">Created By</Label>
-                      <div className="text-sm text-gray-900">{itemToView.created_by || '-'}</div>
-                    </div>
-                    <div>
-                      <Label className="text-xs font-medium text-gray-500">Created At</Label>
-                      <div className="text-sm text-gray-900">
-                        {itemToView.created_at ? new Date(itemToView.created_at).toLocaleDateString() : '-'}
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-xs font-medium text-gray-500">Last Modified By</Label>
-                      <div className="text-sm text-gray-900">{itemToView.modified_by || '-'}</div>
-                    </div>
-                    <div>
-                      <Label className="text-xs font-medium text-gray-500">Last Modified At</Label>
-                      <div className="text-sm text-gray-900">
-                        {itemToView.modified_at ? new Date(itemToView.modified_at).toLocaleDateString() : '-'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
           )}
@@ -1784,7 +2192,7 @@ export function ManageLibrary() {
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Delete Library Item</DialogTitle>
+            <DialogTitle>Delete Books</DialogTitle>
             <DialogDescription>
               Are you sure you want to delete this item? This action cannot be undone.
             </DialogDescription>

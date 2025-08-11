@@ -19,7 +19,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Package, Trash2, RefreshCw, Edit, ChevronRight, ChevronLeft, Info, Receipt, History, Image } from "lucide-react"
+import { Plus, Package, Trash2, RefreshCw, Edit, ChevronRight, ChevronLeft, Info, Receipt, History, Image ,Search, Filter, Settings } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/components/auth-provider"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -56,6 +56,12 @@ interface IndividualItem {
   unique_id: string
 }
 
+interface SpecificationRow {
+  id: string
+  attribute: string
+  value: string
+}
+
 // Utility functions for formatting
 function toTitleCase(str: string) {
   return str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase())
@@ -81,6 +87,7 @@ export function ManageLabComponents() {
   const [loading, setLoading] = useState(true)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
+  const [selectedCategory, setSelectedCategory] = useState("all")
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [componentToDelete, setComponentToDelete] = useState<LabComponent | null>(null)
   const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false)
@@ -101,12 +108,22 @@ export function ManageLabComponents() {
     purchase_date: "",
     purchase_value: "",
     purchase_currency: "INR"
+    // domain_id removed - automatically assigned by API
   })
+
+  // Removed domains state - lab components are auto-assigned to "Lab Components" domain
 
   // Individual tracking state
   const [trackIndividual, setTrackIndividual] = useState(false)
   const [individualItems, setIndividualItems] = useState<IndividualItem[]>([])
   const [individualItemErrors, setIndividualItemErrors] = useState<Record<string, string>>({})
+  
+  // Specification table state
+  const [specificationRows, setSpecificationRows] = useState<SpecificationRow[]>([
+    { id: '1', attribute: '', value: '' },
+    { id: '2', attribute: '', value: '' },
+    { id: '3', attribute: '', value: '' }
+  ])
 
   const [frontImageFile, setFrontImageFile] = useState<File | null>(null)
   const [backImageFile, setBackImageFile] = useState<File | null>(null)
@@ -131,6 +148,9 @@ export function ManageLabComponents() {
   // Add form validation state
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // AI analysis state
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
 
   // Bulk upload state
   const [isBulkUploadDialogOpen, setIsBulkUploadDialogOpen] = useState(false)
@@ -141,10 +161,13 @@ export function ManageLabComponents() {
   const locationInputRef = useRef<HTMLDivElement>(null)
   const categoryInputRef = useRef<HTMLDivElement>(null)
 
+  const [editMode, setEditMode] = useState(false);
+
   useEffect(() => {
     fetchComponents()
     fetchCategories()
     fetchLocations()
+    // fetchDomains() removed - domain assignment is automatic
   }, [])
 
   // Debug user information
@@ -155,6 +178,28 @@ export function ManageLabComponents() {
     console.log("ManageLabComponents - User role:", user?.role)
   }, [user])
 
+  // Specification table management functions
+  const addSpecificationRow = () => {
+    const newRow: SpecificationRow = {
+      id: Date.now().toString(),
+      attribute: '',
+      value: ''
+    }
+    setSpecificationRows(prev => [...prev, newRow])
+  }
+  
+  const removeSpecificationRow = (id: string) => {
+    setSpecificationRows(prev => prev.filter(row => row.id !== id))
+  }
+  
+  const updateSpecificationRow = (id: string, field: 'attribute' | 'value', value: string) => {
+    setSpecificationRows(prev =>
+      prev.map(row =>
+        row.id === id ? { ...row, [field]: value } : row
+      )
+    )
+  }
+  
   // Individual item management functions
   const addIndividualItem = () => {
     const newItem: IndividualItem = {
@@ -260,7 +305,13 @@ export function ManageLabComponents() {
       setLoading(true)
       const response = await fetch("/api/lab-components")
       const data = await response.json()
-      setComponents(data.components || [])
+      setComponents(
+        (data.components || []).map((component: LabComponent) => ({
+          ...component,
+          imageUrl: component.front_image_id ? `/lab-images/${component.front_image_id}` : null,
+          backImageUrl: component.back_image_id ? `/lab-images/${component.back_image_id}` : null,
+        }))
+      )
     } catch (error) {
       console.error("Error fetching components:", error)
       toast({
@@ -309,10 +360,17 @@ export function ManageLabComponents() {
   };
 
   const filteredComponents = components.filter(
-    (component) =>
-      (component.component_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-      (component.component_category?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-      (component.component_location?.toLowerCase() || '').includes(searchTerm.toLowerCase()),
+    (component) => {
+      const matchesSearch = 
+        (component.component_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+        (component.component_category?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+        (component.component_location?.toLowerCase() || '').includes(searchTerm.toLowerCase())
+      
+      const matchesCategory = selectedCategory === "all" || 
+        (component.component_category?.toLowerCase() || '') === selectedCategory.toLowerCase()
+      
+      return matchesSearch && matchesCategory
+    }
   )
 
   const handleAddComponent = async () => {
@@ -446,6 +504,7 @@ export function ManageLabComponents() {
           component_category: formattedCategory,
           component_location: formattedLocation,
           component_quantity: finalQuantity,
+          component_specification: convertSpecificationsToString(),
           front_image_id: frontImageUrl,
           back_image_id: backImageUrl,
           created_by: user?.name || "system-fallback",
@@ -923,6 +982,7 @@ export function ManageLabComponents() {
         },
         body: JSON.stringify({
           ...editingComponent,
+          component_specification: convertSpecificationsToString(),
           front_image_id: frontImageId,
           back_image_id: backImageId,
           modified_by: user?.name || "system-fallback",
@@ -967,6 +1027,212 @@ export function ManageLabComponents() {
     editingComponent.component_category.trim() !== "" &&
     editingComponent.component_location.trim() !== ""
 
+  // AI Analysis function
+  const handleAIAnalysis = async () => {
+    if (!frontImageFile || !backImageFile) {
+      toast({
+        title: "Error",
+        description: "Both front and back images are required for AI analysis",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsAnalyzing(true)
+    
+    try {
+      const formData = new FormData()
+      formData.append('frontImage', frontImageFile)
+      formData.append('backImage', backImageFile)
+      formData.append('itemType', 'lab') // Specify this is for lab components
+
+      const response = await fetch('/api/ai-analyze-images', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to analyze images')
+      }
+
+      const data = await response.json()
+      
+      if (data.status === 'error') {
+        // Handle validation errors (wrong item type)
+        toast({
+          title: "Invalid Item Type",
+          description: data.error || "Please upload images of lab components only, not library items.",
+          variant: "destructive",
+        })
+        return
+      }
+      
+      if (data.status === 'success' && data.result) {
+        setNewComponent(prev => ({
+          ...prev,
+          component_name: data.result.name,
+          component_description: data.result.description,
+          component_specification: data.result.specifications
+        }))
+        
+        // Parse AI specifications into table format if possible
+        if (data.result.specifications) {
+          const parsedSpecs = parseSpecificationsToTable(data.result.specifications)
+          setSpecificationRows(parsedSpecs)
+        }
+        
+        toast({
+          title: "AI Analysis Complete",
+          description: "Component name, description and specifications have been generated successfully",
+        })
+      } else {
+        throw new Error(data.error || 'AI analysis failed')
+      }
+      
+    } catch (error) {
+      console.error('AI Analysis Error:', error)
+      toast({
+        title: "AI Analysis Failed",
+        description: error instanceof Error ? error.message : "Failed to analyze images",
+        variant: "destructive",
+      })
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  // Helper function to parse AI specifications into table format
+  const parseSpecificationsToTable = (specs: string): SpecificationRow[] => {
+    const rows: SpecificationRow[] = []
+    let idCounter = 1
+    
+    // Check if specs are in pipe-separated format (from new AI)
+    if (specs.includes('|')) {
+      const attributes = specs.split('|').map(attr => attr.trim()).filter(attr => attr)
+      attributes.forEach(attribute => {
+        // Check if the attribute already contains a value (has colon or equals)
+        const colonIndex = attribute.indexOf(':')
+        const equalsIndex = attribute.indexOf('=')
+        
+        if (colonIndex > 0) {
+          // Format: "Attribute: Value"
+          rows.push({
+            id: (idCounter++).toString(),
+            attribute: attribute.substring(0, colonIndex).trim(),
+            value: attribute.substring(colonIndex + 1).trim()
+          })
+        } else if (equalsIndex > 0) {
+          // Format: "Attribute = Value"
+          rows.push({
+            id: (idCounter++).toString(),
+            attribute: attribute.substring(0, equalsIndex).trim(),
+            value: attribute.substring(equalsIndex + 1).trim()
+          })
+        } else {
+          // Just attribute name, provide helpful placeholder value
+          const getPlaceholderValue = (attr: string) => {
+            const attrLower = attr.toLowerCase();
+            if (attrLower.includes('dimension')) return 'e.g., 34mm x 26mm';
+            if (attrLower.includes('voltage')) return 'e.g., 3.3V';
+            if (attrLower.includes('current')) return 'e.g., 500mA';
+            if (attrLower.includes('material')) return 'e.g., FR4 PCB';
+            if (attrLower.includes('interface')) return 'e.g., USB Type-B';
+            if (attrLower.includes('package')) return 'e.g., Through-hole';
+            if (attrLower.includes('temperature')) return 'e.g., -10°C to +70°C';
+            if (attrLower.includes('power')) return 'e.g., 20mA';
+            return 'Please specify';
+          };
+          
+          rows.push({
+            id: (idCounter++).toString(),
+            attribute: attribute,
+            value: getPlaceholderValue(attribute)
+          })
+        }
+      })
+    } else {
+      // Legacy format - split by common delimiters and parse
+      const lines = specs.split(/[.\n;]/).filter(line => line.trim())
+      
+      lines.forEach(line => {
+        const trimmedLine = line.trim()
+        if (trimmedLine) {
+          // Try to extract attribute-value pairs
+          const patterns = [
+            /([^:]+):\s*(.+)/,  // "Attribute: Value"
+            /([^=]+)=\s*(.+)/,  // "Attribute = Value"
+            /(\w+(?:\s+\w+)*)\s+(.+)/  // "Attribute Value"
+          ]
+          
+          for (const pattern of patterns) {
+            const match = trimmedLine.match(pattern)
+            if (match) {
+              rows.push({
+                id: (idCounter++).toString(),
+                attribute: match[1].trim(),
+                value: match[2].trim()
+              })
+              break
+            }
+          }
+        }
+      })
+      
+      // If no patterns matched, add the whole spec as a single row
+      if (rows.length === 0) {
+        rows.push({
+          id: '1',
+          attribute: 'Description',
+          value: specs
+        })
+      }
+    }
+    
+    // Sort specifications by importance (most important first)
+    const getLabSpecPriority = (attribute: string): number => {
+      const attr = attribute.toLowerCase()
+      // Higher number = higher priority (will appear first)
+      if (attr.includes('dimension') || attr.includes('size')) return 10
+      if (attr.includes('voltage') || attr.includes('power')) return 9
+      if (attr.includes('current') || attr.includes('rating')) return 8
+      if (attr.includes('material') || attr.includes('type')) return 7
+      if (attr.includes('interface') || attr.includes('connection')) return 6
+      if (attr.includes('package') || attr.includes('mounting')) return 5
+      if (attr.includes('temperature') || attr.includes('operating')) return 4
+      if (attr.includes('frequency') || attr.includes('speed')) return 3
+      if (attr.includes('weight') || attr.includes('mass')) return 2
+      return 1 // Default priority for other specs
+    }
+    
+    // Sort rows with actual content by priority
+    const filledRows = rows.filter(row => row.attribute.trim() || row.value.trim())
+    const emptyRows = rows.filter(row => !row.attribute.trim() && !row.value.trim())
+    
+    filledRows.sort((a, b) => getLabSpecPriority(b.attribute) - getLabSpecPriority(a.attribute))
+    
+    // Combine sorted filled rows with empty rows
+    const sortedRows = [...filledRows, ...emptyRows]
+    
+    // Always ensure we have at least 3 rows, but allow AI to add more
+    while (sortedRows.length < 3) {
+      sortedRows.push({
+        id: (idCounter++).toString(),
+        attribute: '',
+        value: ''
+      })
+    }
+    
+    return sortedRows
+  }
+  
+  // Convert specification rows to string format for API
+  const convertSpecificationsToString = (): string => {
+    return specificationRows
+      .filter(row => row.attribute.trim() || row.value.trim())
+      .map(row => `${row.attribute}: ${row.value}`)
+      .join('. ')
+  }
+  
   // Reset form and errors
   const resetForm = () => {
     setNewComponent({
@@ -982,6 +1248,7 @@ export function ManageLabComponents() {
       purchase_date: "",
       purchase_value: "",
       purchase_currency: "INR"
+      // domain_id removed - automatically assigned by API
     })
     setFrontImageFile(null)
     setBackImageFile(null)
@@ -993,126 +1260,57 @@ export function ManageLabComponents() {
     setNewCategory("")
     setNewLocation("")
     setIsSubmitting(false)
+    setIsAnalyzing(false)
     // Reset individual tracking state
     setTrackIndividual(false)
     setIndividualItems([])
     setIndividualItemErrors({})
+    // Reset specification table with default lab specs
+    setSpecificationRows([
+      { id: '1', attribute: '', value: '' },
+      { id: '2', attribute: '', value: '' },
+      { id: '3', attribute: '', value: '' }
+    ])
   }
 
   // Bulk upload functions
-  const downloadSampleCSV = (e: React.MouseEvent) => {
+  const downloadSampleCSV = async (e: React.MouseEvent) => {
     e.preventDefault()
-    const headers = [
-      'component_name',
-      'component_description', 
-      'component_specification',
-      'component_quantity',
-      'component_tag_id',
-      'component_category',
-      'component_location',
-      'front_image_id',
-      'back_image_id',
-      'invoice_number',
-      'purchase_value',
-      'purchased_from',
-      'purchase_currency',
-      'purchase_date'
-    ]
     
-    const sampleData = [
-      [
-        'Arduino Uno R3',
-        'Microcontroller board based on the ATmega328P',
-        'Operating Voltage: 5V, Input Voltage: 7-12V, Digital I/O Pins: 14, Flash Memory: 32KB',
-        '10',
-        'ARD001',
-        'Electrical',
-        'Lab A',
-        'arduino-front.jpg',
-        'arduino-back.jpg',
-        'INV001',
-        '750.00',
-        'Electronics Store',
-        'INR',
-        '2024-01-15'
-      ],
-      [
-        'NodeMCU ESP8266',
-        'Wi-Fi enabled microcontroller development board',
-        'Processor: ESP8266, Flash: 4MB, GPIO: 10, Wi-Fi: 802.11 b/g/n',
-        '8',
-        'ESP001',
-        'Electrical',
-        'Lab A',
-        'nodemcu-front.jpg',
-        'nodemcu-back.jpg',
-        'INV002',
-        '450.00',
-        'Tech Components Ltd',
-        'INR',
-        '2024-01-20'
-      ],
-      [
-        'Breadboard 830 Point',
-        'Solderless breadboard for prototyping electronic circuits',
-        'Tie Points: 830, Size: 165mm x 55mm, ABS Plastic Base',
-        '15',
-        'BB001',
-        'Electrical',
-        'Lab B',
-        'breadboard-front.jpg',
-        'breadboard-back.jpg',
-        'INV003',
-        '120.00',
-        'Circuit World',
-        'INR',
-        '2024-01-25'
-      ],
-      [
-        'Multimeter Digital',
-        'Digital multimeter for measuring voltage, current, and resistance',
-        'Range: DC 0-600V, AC 0-600V, Current: 0-10A, Resistance: 0-20MΩ',
-        '5',
-        'MM001',
-        'Measurement',
-        'Equipment Room',
-        'multimeter-front.jpg',
-        'multimeter-back.jpg',
-        'INV004',
-        '1200.00',
-        'Instrument Supply Co',
-        'INR',
-        '2024-02-01'
-      ],
-      [
-        'Resistor Kit 1/4W',
-        'Assorted carbon film resistors kit',
-        'Values: 10Ω to 1MΩ, Tolerance: ±5%, Power: 1/4W, Quantity: 600 pieces',
-        '3',
-        'RES001',
-        'Electrical',
-        'Storage Room',
-        'resistor-kit-front.jpg',
-        'resistor-kit-back.jpg',
-        'INV005',
-        '350.00',
-        'Electronic Components Hub',
-        'INR',
-        '2024-02-05'
-      ]
-    ]
-    
-    const csvContent = [headers.join(','), ...sampleData.map(row => row.map(field => `"${field}"`).join(','))].join('\n')
-    const blob = new Blob([csvContent], { type: 'text/csv' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.setAttribute('hidden', '')
-    a.setAttribute('href', url)
-    a.setAttribute('download', 'lab-components-sample.csv')
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    window.URL.revokeObjectURL(url)
+    try {
+      // Fetch the actual sample CSV from the API
+      const response = await fetch('/api/lab-components/sample-csv')
+      
+      if (!response.ok) {
+        throw new Error('Failed to download sample CSV')
+      }
+      
+      // Get the CSV content as blob
+      const blob = await response.blob()
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.setAttribute('hidden', '')
+      a.setAttribute('href', url)
+      a.setAttribute('download', 'sample-lab-components.csv')
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+      
+      toast({
+        title: "Success",
+        description: "Sample CSV downloaded successfully",
+      })
+    } catch (error) {
+      console.error('Error downloading sample CSV:', error)
+      toast({
+        title: "Error",
+        description: "Failed to download sample CSV",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleBulkUpload = async () => {
@@ -1175,15 +1373,20 @@ export function ManageLabComponents() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center mb-4">
         <div>
-          <h3 className="text-3xl font-bold text-gray-900">Lab Components Management</h3>
+          <h1 className="admin-page-title">Lab Components Management</h1>
         </div>
-
         <div className="flex space-x-2">
           <Button onClick={fetchComponents} variant="outline">
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
+          </Button>
+          <Button
+            variant={editMode ? "default" : "outline"}
+            onClick={() => setEditMode((v) => !v)}
+          >
+            {editMode ? "Editing..." : "Edit Mode"}
           </Button>
           <Dialog open={isBulkUploadDialogOpen} onOpenChange={setIsBulkUploadDialogOpen}>
             <DialogTrigger asChild>
@@ -1494,8 +1697,20 @@ export function ManageLabComponents() {
                   <div className="space-y-3">
                   <div className="flex items-center justify-between">
                       <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Component Images</h3>
-                      <Button variant="outline" size="sm" type="button" className="h-8">
-                        <img src="/genAI_icon.png" alt="GenAI" className="h-7 w-7" />
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        type="button" 
+                        className="h-8"
+                        onClick={handleAIAnalysis}
+                        disabled={!frontImageFile || !backImageFile || isAnalyzing}
+                        title={!frontImageFile || !backImageFile ? "Upload both front and back images first" : "Analyze images with AI"}
+                      >
+                        {isAnalyzing ? (
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <img src="/genAI_icon.png" alt="GenAI" className="h-7 w-7" />
+                        )}
                     </Button>
                   </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -1535,12 +1750,55 @@ export function ManageLabComponents() {
                   <div className="space-y-3">
                   <div>
                       <Label htmlFor="description">Description *</Label>
-                      <Textarea id="description" value={newComponent.component_description} onChange={e => setNewComponent(prev => ({ ...prev, component_description: e.target.value }))} rows={3} className={`mt-1 ${formErrors.component_description ? 'border-red-500' : ''}`} />
-                      {formErrors.component_description && <p className="text-red-500 text-xs mt-1">{formErrors.component_description}</p>}
+                      <Textarea id="description" value={newComponent.component_description} onChange={e => setNewComponent(prev => ({ ...prev, component_description: e.target.value }))} rows={4} className={`mt-1 resize-none leading-relaxed ${formErrors.component_description ? 'border-red-500' : ''}`} placeholder="Describe the component's purpose, key features, and functionality (max 250 characters)" maxLength={250} />
+                      <div className="flex justify-between items-center mt-1">
+                        {formErrors.component_description && <p className="text-red-500 text-xs">{formErrors.component_description}</p>}
+                        <p className="text-xs text-gray-500 ml-auto">{newComponent.component_description.length}/250 characters</p>
+                      </div>
                   </div>
                   <div>
-                      <Label htmlFor="specifications">Specifications</Label>
-                      <Textarea id="specifications" value={newComponent.component_specification} onChange={e => setNewComponent(prev => ({ ...prev, component_specification: e.target.value }))} rows={3} className="mt-1" />
+                    <div className="flex items-center justify-between">
+                      <Label>Specifications</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={addSpecificationRow}
+                        className="h-6 w-6 p-0"
+                        title="Add specification row"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <div className="mt-2 space-y-2 h-28 overflow-y-auto">
+                      {specificationRows.map((row, index) => (
+                        <div key={row.id} className="flex items-center space-x-2">
+                          <Input
+                            placeholder=""
+                            value={row.attribute}
+                            onChange={(e) => updateSpecificationRow(row.id, 'attribute', e.target.value)}
+                            className="flex-1 h-8 text-sm"
+                          />
+                          <Input
+                            placeholder=""
+                            value={row.value}
+                            onChange={(e) => updateSpecificationRow(row.id, 'value', e.target.value)}
+                            className="flex-1 h-8 text-sm"
+                          />
+                          {specificationRows.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => removeSpecificationRow(row.id)}
+                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
                   <div className="space-y-3">
@@ -1624,13 +1882,35 @@ export function ManageLabComponents() {
         </div>
       </div>
 
-      <div className="flex items-center space-x-4">
-        <Input
-          placeholder="Search components..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="max-w-sm"
-        />
+      <div className="flex flex-wrap gap-2 items-center mb-4 pb-1">
+        <div className="relative w-full md:w-1/2 lg:w-1/3">
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400">
+            <Search className="h-4 w-4" />
+          </span>
+          <Input
+            placeholder="Search components..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-8 pr-2 h-9 w-full text-sm"
+          />
+        </div>
+        <span className="flex items-center ml-4 mr-1 text-gray-400"><Filter className="h-5 w-5" /></span>
+        <span className="text-sm text-gray-600 font-medium ml-1">Category</span>
+        <div className="w-40 flex flex-col">
+          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <SelectTrigger className="h-9 text-sm">
+              <SelectValue placeholder="Category">{selectedCategory !== "all" ? selectedCategory : undefined}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {categoryOptions.map((category) => (
+                <SelectItem key={category} value={category}>
+                  {category}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -1644,31 +1924,36 @@ export function ManageLabComponents() {
           </Card>
         ) : (
           filteredComponents.map((component) => (
-            <Card key={component.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Package className="h-5 w-5 text-gray-500" />
-                    <h3 className="text-lg font-semibold">{component.component_name}</h3>
+            <Card key={component.id} className="flex flex-col h-full hover:shadow-md transition-shadow duration-200">
+              <CardHeader className="p-3">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="flex items-center space-x-2 text-sm">
+                      <Package className="h-4 w-4 flex-shrink-0" />
+                      <span className="truncate">{component.component_name}</span>
+                    </CardTitle>
+                    <CardDescription className="text-xs">{component.component_category}</CardDescription>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setComponentToView(component)
-                      setIsInfoDialogOpen(true)
-                    }}
-                    className="text-blue-600 hover:text-blue-700"
-                  >
-                    <Info className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center space-x-1 flex-shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-gray-400 hover:text-gray-600"
+                      onClick={() => {
+                        setComponentToView(component)
+                        setIsInfoDialogOpen(true)
+                      }}
+                    >
+                      <Info className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
-              <CardContent className="p-6">
-                <div className="space-y-6">
-                  {/* Image Display with Fade Animation */}
+              <CardContent className="flex-grow flex flex-col p-3 pt-0">
+                <div className="space-y-3 flex-grow">
+                  {/* Image Display */}
                   {(component.imageUrl || component.backImageUrl) && (
-                    <div className="relative w-full h-100">
+                    <div className="relative w-full h-48">
                       {/* Front Image */}
                       <div 
                         className={`absolute inset-0 w-full h-full transition-opacity duration-300 ease-in-out ${
@@ -1678,7 +1963,7 @@ export function ManageLabComponents() {
                         <img
                           src={component.imageUrl || '/placeholder.jpg'}
                           alt={`Front view of ${component.component_name}`}
-                          className="w-full h-full object-contain rounded-lg bg-gray-50"
+                          className="w-full h-full object-contain rounded-md bg-gray-50"
                         />
                       </div>
                       
@@ -1692,7 +1977,7 @@ export function ManageLabComponents() {
                           <img
                             src={component.backImageUrl}
                             alt={`Back view of ${component.component_name}`}
-                            className="w-full h-full object-contain rounded-lg bg-gray-50"
+                            className="w-full h-full object-contain rounded-md bg-gray-50"
                           />
                         </div>
                       )}
@@ -1700,41 +1985,39 @@ export function ManageLabComponents() {
                       {/* Navigation Buttons */}
                       {component.backImageUrl && (
                         <>
-                          {/* Show right arrow when on front image */}
                           {!imageStates[component.id] && (
                             <Button
                               variant="secondary"
                               size="icon"
-                              className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-white/80 hover:bg-white shadow-md z-10"
+                              className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-white/80 hover:bg-white shadow-sm z-10"
                               onClick={() => setImageStates(prev => ({ ...prev, [component.id]: true }))}
                             >
-                              <ChevronRight className="h-4 w-4" />
+                              <ChevronRight className="h-3 w-3" />
                             </Button>
                           )}
-                          {/* Show left arrow when on back image */}
                           {imageStates[component.id] && (
                             <Button
                               variant="secondary"
                               size="icon"
-                              className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-white/80 hover:bg-white shadow-md z-10"
+                              className="absolute left-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-white/80 hover:bg-white shadow-sm z-10"
                               onClick={() => setImageStates(prev => ({ ...prev, [component.id]: false }))}
                             >
-                              <ChevronLeft className="h-4 w-4" />
+                              <ChevronLeft className="h-3 w-3" />
                             </Button>
                           )}
                         </>
                       )}
-
-                      {/* Image Indicator */}
+                      
+                      {/* Image Indicators */}
                       {component.backImageUrl && (
-                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex space-x-1 z-10">
+                        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex space-x-1 z-10">
                           <div 
-                            className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${
+                            className={`w-1 h-1 rounded-full transition-colors duration-300 ${
                               !imageStates[component.id] ? 'bg-white' : 'bg-white/50'
                             }`}
                           />
                           <div 
-                            className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${
+                            className={`w-1 h-1 rounded-full transition-colors duration-300 ${
                               imageStates[component.id] ? 'bg-white' : 'bg-white/50'
                             }`}
                           />
@@ -1742,70 +2025,51 @@ export function ManageLabComponents() {
                       )}
                     </div>
                   )}
-
-                  {/* Component Details */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-bold text-gray-700">Total Quantity</p>
-                      <p>{component.component_quantity}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-gray-700">Available</p>
-                      <p>{component.availableQuantity || 0}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-gray-700">Category</p>
-                      <p>{component.component_category}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-gray-700">Location</p>
-                      <p>{component.component_location}</p>
+                  
+                  <div className="text-xs text-gray-700">
+                    <div className="flex justify-between items-center">
+                      <span><span className="font-medium">Total:</span> {component.component_quantity}</span>
+                      <span><span className="font-medium">Available:</span> {component.availableQuantity || 0}</span>
+                      <span className="text-gray-500"><span className="font-medium">Location:</span> {component.component_location}</span>
                     </div>
                   </div>
+                </div>
 
-                  <div>
-                    <p className="text-sm font-bold text-gray-700">Description :</p>
-                    <p className="text-sm text-gray-600 line-clamp-2">{component.component_description}</p>
-                  </div>
-
-                  {component.component_specification && (
-                    <div>
-                      <p className="text-sm font-bold text-gray-700">Specifications :</p>
-                      <p className="text-sm text-gray-600 line-clamp-2">{component.component_specification}</p>
+                <div className="mt-3">
+                  {editMode && (
+                    <div className="flex space-x-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 h-8 text-xs"
+                        onClick={() => {
+                          setEditingComponent(component)
+                          setIsEditDialogOpen(true)
+                          if (component.imageUrl) {
+                            setFrontImagePreview(component.imageUrl)
+                          }
+                          if (component.backImageUrl) {
+                            setBackImagePreview(component.backImageUrl)
+                          }
+                        }}
+                      >
+                        <Edit className="h-3 w-3 mr-1" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 h-8 text-xs text-red-600 hover:text-red-700"
+                        onClick={() => {
+                          setComponentToDelete(component)
+                          setIsDeleteDialogOpen(true)
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Delete
+                      </Button>
                     </div>
                   )}
-
-                  <div className="flex justify-end space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setEditingComponent(component)
-                        setIsEditDialogOpen(true)
-                        // Set image previews if images exist
-                        if (component.imageUrl) {
-                          setFrontImagePreview(component.imageUrl)
-                        }
-                        if (component.backImageUrl) {
-                          setBackImagePreview(component.backImageUrl)
-                        }
-                      }}
-                      className="text-blue-600 hover:text-blue-700"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setComponentToDelete(component)
-                        setIsDeleteDialogOpen(true)
-                      }}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -1815,221 +2079,267 @@ export function ManageLabComponents() {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden">
+        <DialogContent className="max-w-[90vw] w-[1100px] max-h-[90vh] h-[750px] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>Edit Component</DialogTitle>
-            <DialogDescription>Update the details of the lab component.</DialogDescription>
+            <DialogTitle>Edit Lab Component</DialogTitle>
           </DialogHeader>
           {editingComponent && (
-            <div className="overflow-y-auto max-h-[calc(90vh-120px)] pr-2">
-              <div className="grid gap-8 py-4">
-                {/* Form Fields */}
-                <div className="grid md:grid-cols-2 gap-6">
-                  {/* Left Column */}
-                  <div className="space-y-6">
-                    {/* General Info */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>General Information</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="edit-name">Component Name *</Label>
-                          <Input
-                            id="edit-name"
-                            value={editingComponent.component_name}
-                            onChange={(e) =>
-                              setEditingComponent({ ...editingComponent, component_name: e.target.value })
-                            }
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="edit-description">Description</Label>
-                          <Textarea
-                            id="edit-description"
-                            value={editingComponent.component_description}
-                            onChange={(e) =>
-                              setEditingComponent({ ...editingComponent, component_description: e.target.value })
-                            }
-                            rows={3}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="edit-specifications">Specifications</Label>
-                          <Textarea
-                            id="edit-specifications"
-                            value={editingComponent.component_specification || ""}
-                            onChange={(e) =>
-                              setEditingComponent({ ...editingComponent, component_specification: e.target.value })
-                            }
-                            rows={3}
-                          />
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* Stock & Location */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Stock & Location</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="edit-quantity">Total Quantity *</Label>
-                            <Input
-                              id="edit-quantity"
-                              type="number"
-                              value={editingComponent.component_quantity}
-                              onChange={(e) =>
-                                setEditingComponent({
-                                  ...editingComponent,
-                                  component_quantity: Number.parseInt(e.target.value),
-                                })
-                              }
-                              min="0"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="edit-tagId">Tag ID</Label>
-                            <Input
-                              id="edit-tagId"
-                              value={editingComponent.component_tag_id || ""}
-                              onChange={(e) =>
-                                setEditingComponent({ ...editingComponent, component_tag_id: e.target.value })
-                              }
-                            />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="edit-category">Category *</Label>
-                            <Input
-                              id="edit-category"
-                              value={editingComponent.component_category}
-                              onChange={(e) =>
-                                setEditingComponent({ ...editingComponent, component_category: e.target.value })
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="edit-location">Location *</Label>
-                            <Input
-                              id="edit-location"
-                              value={editingComponent.component_location}
-                              onChange={(e) =>
-                                setEditingComponent({ ...editingComponent, component_location: e.target.value })
-                              }
-                            />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 flex-1 overflow-y-auto">
+              {/* Left Column: Basic Info & Images */}
+              <div className="space-y-6 pr-3 pl-3">
+                <div className="space-y-3">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="col-span-2">
+                      <Label htmlFor="edit-name">Component Name *</Label>
+                      <Input 
+                        id="edit-name" 
+                        value={editingComponent.component_name} 
+                        onChange={e => setEditingComponent(prev => prev ? { ...prev, component_name: e.target.value } : null)}
+                        className="mt-1" 
+                      />
+                    </div>
+                    <div className="col-span-1">
+                      <Label htmlFor="edit-tagId">Tag ID (optional)</Label>
+                      <Input 
+                        id="edit-tagId" 
+                        value={editingComponent.component_tag_id || ""} 
+                        onChange={e => setEditingComponent(prev => prev ? { ...prev, component_tag_id: e.target.value } : null)}
+                        className="mt-1" 
+                      />
+                    </div>
                   </div>
-                  {/* Right Column */}
-                  <div className="space-y-6">
-                    {/* Purchase Information */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Purchase Information</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="edit-invoice">Invoice Number</Label>
-                          <Input
-                            id="edit-invoice"
-                            value={editingComponent.invoice_number || ""}
-                            onChange={(e) =>
-                              setEditingComponent({ ...editingComponent, invoice_number: e.target.value })
-                            }
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="edit-value">Purchase Value</Label>
-                            <Input
-                              id="edit-value"
-                              type="number"
-                              value={editingComponent.purchase_value || ""}
-                              onChange={(e) =>
-                                setEditingComponent({ ...editingComponent, purchase_value: e.target.value })
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="edit-currency">Currency</Label>
-                            <Input
-                              id="edit-currency"
-                              value={editingComponent.purchase_currency}
-                              onChange={(e) =>
-                                setEditingComponent({ ...editingComponent, purchase_currency: e.target.value })
-                              }
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="edit-purchasedFrom">Purchased From</Label>
-                          <Input
-                            id="edit-purchasedFrom"
-                            value={editingComponent.purchased_from || ""}
-                            onChange={(e) =>
-                              setEditingComponent({ ...editingComponent, purchased_from: e.target.value })
-                            }
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="edit-purchaseDate">Purchase Date</Label>
-                          <Input
-                            id="edit-purchaseDate"
-                            type="date"
-                            value={
-                              editingComponent.purchase_date
-                                ? new Date(editingComponent.purchase_date).toISOString().split("T")[0]
-                                : ""
-                            }
-                            onChange={(e) =>
-                              setEditingComponent({ ...editingComponent, purchase_date: e.target.value })
-                            }
-                          />
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* Images */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Images</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        {/* Placeholder for image uploads */}
-                        <div className="text-sm text-gray-500">Image upload is not available during edit.</div>
-                      </CardContent>
-                    </Card>
+                  
+                  <div className="flex gap-3 items-end">
+                    <div className="flex-1">
+                      <Label htmlFor="edit-location">Location *</Label>
+                      <Input 
+                        id="edit-location" 
+                        value={editingComponent.component_location} 
+                        onChange={e => setEditingComponent(prev => prev ? { ...prev, component_location: e.target.value } : null)}
+                        className="mt-1" 
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <Label htmlFor="edit-category">Category *</Label>
+                      <Input 
+                        id="edit-category" 
+                        value={editingComponent.component_category} 
+                        onChange={e => setEditingComponent(prev => prev ? { ...prev, component_category: e.target.value } : null)}
+                        className="mt-1" 
+                      />
+                    </div>
+                    <div className="w-20">
+                      <Label htmlFor="edit-quantity">Quantity *</Label>
+                      <Input 
+                        id="edit-quantity" 
+                        type="number" 
+                        value={editingComponent.component_quantity} 
+                        onChange={e => setEditingComponent(prev => prev ? { ...prev, component_quantity: Number.parseInt(e.target.value) } : null)}
+                        min="1" 
+                        className="mt-1" 
+                      />
+                    </div>
                   </div>
                 </div>
-
-                {/* Footer */}
-                <DialogFooter className="sticky bottom-0 bg-white pt-4 border-t">
-                  <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span tabIndex={0}>
-                          <Button onClick={handleEditComponent} disabled={!isEditFormValid}>
-                            Save Changes
-                          </Button>
-                        </span>
-                      </TooltipTrigger>
-                      {!isEditFormValid && (
-                        <TooltipContent>
-                          <p>Please fill in all required fields: Name, Category, and Location.</p>
-                        </TooltipContent>
+                
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Component Images</h3>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="edit-frontImage">Front Image</Label>
+                      <Input 
+                        id="edit-frontImage" 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={e => setFrontImageFile(e.target.files?.[0] || null)}
+                        className="mt-1" 
+                      />
+                      {(frontImagePreview || editingComponent.imageUrl) && (
+                        <div className="mt-2">
+                          <img
+                            src={frontImagePreview || editingComponent.imageUrl || ''}
+                            alt="Front Preview"
+                            className="w-full h-40 object-contain rounded-lg bg-gray-50"
+                          />
+                        </div>
                       )}
-                    </Tooltip>
-                  </TooltipProvider>
-                </DialogFooter>
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-backImage">Back Image</Label>
+                      <Input 
+                        id="edit-backImage" 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={e => setBackImageFile(e.target.files?.[0] || null)}
+                        className="mt-1" 
+                      />
+                      {(backImagePreview || editingComponent.backImageUrl) && (
+                        <div className="mt-2">
+                          <img
+                            src={backImagePreview || editingComponent.backImageUrl || ''}
+                            alt="Back Preview"
+                            className="w-full h-40 object-contain rounded-lg bg-gray-50"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Right Column: Details & Purchase Info */}
+              <div className="space-y-6 pr-2">
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="edit-description">Description *</Label>
+                    <Textarea 
+                      id="edit-description" 
+                      value={editingComponent.component_description} 
+                      onChange={e => setEditingComponent(prev => prev ? { ...prev, component_description: e.target.value } : null)}
+                      rows={4} 
+                      className="mt-1 resize-none leading-relaxed" 
+                      placeholder="Describe the component's purpose, key features, and functionality (max 250 characters)"
+                      maxLength={250}
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <Label>Specifications</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={addSpecificationRow}
+                        className="h-6 w-6 p-0"
+                        title="Add specification row"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <div className="mt-2 space-y-2 h-28 overflow-y-auto">
+                      {specificationRows.map((row, index) => (
+                        <div key={row.id} className="flex items-center space-x-2">
+                          <Input
+                            placeholder=""
+                            value={row.attribute}
+                            onChange={(e) => updateSpecificationRow(row.id, 'attribute', e.target.value)}
+                            className="flex-1 h-8 text-sm"
+                          />
+                          <Input
+                            placeholder=""
+                            value={row.value}
+                            onChange={(e) => updateSpecificationRow(row.id, 'value', e.target.value)}
+                            className="flex-1 h-8 text-sm"
+                          />
+                          {specificationRows.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => removeSpecificationRow(row.id)}
+                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Purchase Details (Optional)</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="edit-invoiceNumber">Invoice Number</Label>
+                      <Input 
+                        id="edit-invoiceNumber" 
+                        value={editingComponent.invoice_number || ""} 
+                        onChange={e => setEditingComponent(prev => prev ? { ...prev, invoice_number: e.target.value } : null)}
+                        className="mt-1" 
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-purchasedFrom">Purchased From</Label>
+                      <Input 
+                        id="edit-purchasedFrom" 
+                        value={editingComponent.purchased_from || ""} 
+                        onChange={e => setEditingComponent(prev => prev ? { ...prev, purchased_from: e.target.value } : null)}
+                        className="mt-1" 
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="edit-purchaseDate">Purchase Date</Label>
+                      <Input 
+                        id="edit-purchaseDate" 
+                        type="date" 
+                        value={editingComponent.purchase_date ? new Date(editingComponent.purchase_date).toISOString().split('T')[0] : ''} 
+                        onChange={e => setEditingComponent(prev => prev ? { ...prev, purchase_date: e.target.value } : null)}
+                        className="mt-1" 
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-purchaseValue">Purchase Value</Label>
+                      <Input 
+                        id="edit-purchaseValue" 
+                        type="number" 
+                        min="0" 
+                        step="0.01" 
+                        value={editingComponent.purchase_value || ""} 
+                        onChange={e => setEditingComponent(prev => prev ? { ...prev, purchase_value: e.target.value } : null)}
+                        placeholder="0.00" 
+                        className="mt-1" 
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-purchaseCurrency">Currency</Label>
+                      <Select 
+                        value={editingComponent.purchase_currency} 
+                        onValueChange={value => setEditingComponent(prev => prev ? { ...prev, purchase_currency: value } : null)}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Select currency" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="INR">INR - Indian Rupee</SelectItem>
+                          <SelectItem value="USD">USD - US Dollar</SelectItem>
+                          <SelectItem value="EUR">EUR - Euro</SelectItem>
+                          <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Form Actions */}
+              <div className="col-span-1 md:col-span-2 flex justify-end space-x-3 pt-4 border-t mt-4">
+                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} className="px-6">Cancel</Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span tabIndex={0}>
+                        <Button 
+                          type="button"
+                          onClick={handleEditComponent} 
+                          disabled={!isEditFormValid}
+                        >
+                          Save Changes
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    {!isEditFormValid && (
+                      <TooltipContent>
+                        <p>Please fill in all required fields: Name, Category, and Location.</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </div>
           )}
@@ -2110,193 +2420,158 @@ export function ManageLabComponents() {
 
       {/* Info Dialog */}
       <Dialog open={isInfoDialogOpen} onOpenChange={setIsInfoDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+        <DialogContent className="max-w-4xl">
+          <DialogHeader className="pb-3">
+            <DialogTitle className="flex items-center gap-2 text-lg">
               <Info className="h-5 w-5 text-blue-600" />
               Component Details
             </DialogTitle>
-            <DialogDescription>
-              Detailed information about the lab component including purchase details and audit trail.
-            </DialogDescription>
           </DialogHeader>
           {componentToView && (
-            <div className="space-y-6">
-              {/* Basic Information */}
-              <div className="bg-blue-50 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                  <Package className="h-5 w-5" />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Left Column: Basic Information + Audit Trail */}
+              <div className="space-y-3">
+                {/* Basic Information */}
+                <div className="bg-blue-50 rounded-lg p-3">
+                <h3 className="text-base font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                  <Package className="h-4 w-4" />
                   Basic Information
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <span className="text-sm font-medium text-blue-700">Component Name:</span>
-                    <p className="text-blue-900 font-semibold">{componentToView.component_name}</p>
+                    <Label className="text-xs font-medium text-gray-500">Component Name</Label>
+                    <div className="text-sm font-medium text-gray-900">{componentToView.component_name}</div>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-blue-700">Category:</span>
-                    <p className="text-blue-900">{componentToView.component_category}</p>
+                    <Label className="text-xs font-medium text-gray-500">Category</Label>
+                    <div className="text-sm font-medium text-gray-900">{componentToView.component_category}</div>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-blue-700">Location:</span>
-                    <p className="text-blue-900">{componentToView.component_location}</p>
+                    <Label className="text-xs font-medium text-gray-500">Location</Label>
+                    <div className="text-sm font-medium text-gray-900">{componentToView.component_location}</div>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-blue-700">Tag ID:</span>
-                    <p className="text-blue-900">{componentToView.component_tag_id || "Not assigned"}</p>
+                    <Label className="text-xs font-medium text-gray-500">Tag ID</Label>
+                    <div className="text-sm font-medium text-gray-900">{componentToView.component_tag_id || '-'}</div>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-blue-700">Total Quantity:</span>
-                    <p className="text-blue-900 font-semibold">{componentToView.component_quantity}</p>
+                    <Label className="text-xs font-medium text-gray-500">Total Quantity</Label>
+                    <div className="text-sm font-medium text-gray-900">{componentToView.component_quantity}</div>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-blue-700">Available Quantity:</span>
-                    <p className="text-blue-900 font-semibold">{componentToView.availableQuantity || 0}</p>
+                    <Label className="text-xs font-medium text-gray-500">Available Quantity</Label>
+                    <div className="text-sm font-medium text-gray-900">{componentToView.availableQuantity || 0}</div>
                   </div>
                 </div>
-                {componentToView.component_description && (
-                  <div className="mt-4">
-                    <span className="text-sm font-medium text-blue-700">Description:</span>
-                    <p className="text-blue-900 mt-1">{componentToView.component_description}</p>
-                  </div>
-                )}
-                {componentToView.component_specification && (
-                  <div className="mt-4">
-                    <span className="text-sm font-medium text-blue-700">Specifications:</span>
-                    <p className="text-blue-900 mt-1">{componentToView.component_specification}</p>
-                  </div>
-                )}
+                <div className="mt-3">
+                  <Label className="text-xs font-medium text-gray-500">Description</Label>
+                  <div className="text-xs text-gray-700 mt-1">{componentToView.component_description}</div>
+                </div>
               </div>
 
-              {/* Purchase Information */}
-              {(componentToView.invoice_number || componentToView.purchased_from || componentToView.purchase_value) && (
-                <div className="bg-green-50 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold text-green-900 mb-3 flex items-center gap-2">
-                    <Receipt className="h-5 w-5" />
-                    Purchase Information
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {componentToView.invoice_number && (
-                      <div>
-                        <span className="text-sm font-medium text-green-700">Invoice Number:</span>
-                        <p className="text-green-900 font-mono">{componentToView.invoice_number}</p>
-                      </div>
-                    )}
-                    {componentToView.purchased_from && (
-                      <div>
-                        <span className="text-sm font-medium text-green-700">Purchased From:</span>
-                        <p className="text-green-900">{componentToView.purchased_from}</p>
-                      </div>
-                    )}
-                    {componentToView.purchase_date && (
-                      <div>
-                        <span className="text-sm font-medium text-green-700">Purchase Date:</span>
-                        <p className="text-green-900">{new Date(componentToView.purchase_date).toLocaleDateString()}</p>
-                      </div>
-                    )}
-                    {componentToView.purchase_value && (
-                      <div>
-                        <span className="text-sm font-medium text-green-700">Purchase Value:</span>
-                        <p className="text-green-900 font-semibold">
-                          {componentToView.purchase_currency} {typeof componentToView.purchase_value === 'number' ? componentToView.purchase_value.toLocaleString() : componentToView.purchase_value}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Audit Information */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <History className="h-5 w-5" />
+              {/* Audit Trail - Separate Section */}
+              <div className="bg-gray-50 rounded-lg p-3">
+                <h3 className="text-base font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                  <History className="h-4 w-4" />
                   Audit Trail
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <span className="text-sm font-medium text-gray-700">Created By:</span>
-                    <p className="text-gray-900">{componentToView.created_by || "Unknown"}</p>
+                    <Label className="text-xs font-medium text-gray-500">Created By</Label>
+                    <div className="text-sm text-gray-900">{componentToView.created_by || '-'}</div>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-700">Created Date:</span>
-                    <p className="text-gray-900">
-                      {componentToView.created_at 
-                        ? new Date(componentToView.created_at).toLocaleString('en-US', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit'
-                          })
-                        : "Unknown"
-                      }
-                    </p>
+                    <Label className="text-xs font-medium text-gray-500">Created At</Label>
+                    <div className="text-sm text-gray-900">
+                      {componentToView.created_at ? new Date(componentToView.created_at).toLocaleDateString() : '-'}
+                    </div>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-700">Last Modified By:</span>
-                    <p className="text-gray-900">{componentToView.modified_by || "Not modified"}</p>
+                    <Label className="text-xs font-medium text-gray-500">Last Modified By</Label>
+                    <div className="text-sm text-gray-900">{componentToView.modified_by || '-'}</div>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-700">Last Modified Date:</span>
-                    <p className="text-gray-900">
-                      {componentToView.modified_at 
-                        ? new Date(componentToView.modified_at).toLocaleString('en-US', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit'
-                          })
-                        : "Not modified"
-                      }
-                    </p>
+                    <Label className="text-xs font-medium text-gray-500">Last Modified At</Label>
+                    <div className="text-sm text-gray-900">
+                      {componentToView.modified_at ? new Date(componentToView.modified_at).toLocaleDateString() : '-'}
+                    </div>
                   </div>
                 </div>
               </div>
-
-              {/* Images */}
-              {(componentToView.imageUrl || componentToView.backImageUrl) && (
-                <div className="bg-purple-50 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold text-purple-900 mb-3 flex items-center gap-2">
-                    <Image className="h-5 w-5" />
-                    Component Images
+              </div>
+              
+              {/* Right Column: Specifications and Purchase Details */}
+              <div className="space-y-3">
+                {/* Specifications */}
+                {componentToView.component_specification && (
+                  <div className="bg-green-50 rounded-lg p-3">
+                    <h3 className="text-base font-semibold text-green-900 mb-2 flex items-center gap-2">
+                      <Settings className="h-4 w-4" />
+                      Specifications
+                    </h3>
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                      {componentToView.component_specification.split('.').map((spec, index) => {
+                        if (!spec.trim()) return null
+                        const [attribute, value] = spec.split(':').map(s => s.trim())
+                        if (!attribute || !value) return null
+                        return { attribute, value, originalIndex: index }
+                      })
+                      .filter(Boolean)
+                      .sort((a, b) => {
+                        const getLabSpecPriority = (attribute: string): number => {
+                          const attr = attribute.toLowerCase()
+                          if (attr.includes('dimension') || attr.includes('size')) return 10
+                          if (attr.includes('voltage') || attr.includes('power')) return 9
+                          if (attr.includes('current') || attr.includes('rating')) return 8
+                          if (attr.includes('material') || attr.includes('type')) return 7
+                          if (attr.includes('interface') || attr.includes('connection')) return 6
+                          if (attr.includes('package') || attr.includes('mounting')) return 5
+                          if (attr.includes('temperature') || attr.includes('operating')) return 4
+                          if (attr.includes('frequency') || attr.includes('speed')) return 3
+                          if (attr.includes('weight') || attr.includes('mass')) return 2
+                          return 1
+                        }
+                        return getLabSpecPriority(b.attribute) - getLabSpecPriority(a.attribute)
+                      })
+                      .map((spec, index) => (
+                        <div key={index} className="grid grid-cols-2 gap-2 text-xs border-b border-gray-100 pb-1">
+                          <div className="font-medium text-gray-600">{spec.attribute}</div>
+                          <div className="text-gray-700">{spec.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Purchase Details */}
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <h3 className="text-base font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                    <Receipt className="h-4 w-4" />
+                    Purchase Details
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {componentToView.imageUrl && (
-                      <div>
-                        <span className="text-sm font-medium text-purple-700">Front Image:</span>
-                        <img
-                          src={componentToView.imageUrl}
-                          alt="Front view"
-                          className="mt-2 w-full h-48 object-contain rounded-lg bg-white"
-                        />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs font-medium text-gray-500">Invoice Number</Label>
+                      <div className="text-sm text-gray-900">{componentToView.invoice_number || '-'}</div>
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium text-gray-500">Purchased From</Label>
+                      <div className="text-sm text-gray-900">{componentToView.purchased_from || '-'}</div>
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium text-gray-500">Purchase Date</Label>
+                      <div className="text-sm text-gray-900">
+                        {componentToView.purchase_date ? new Date(componentToView.purchase_date).toLocaleDateString() : '-'}
                       </div>
-                    )}
-                    {componentToView.backImageUrl && (
-                      <div>
-                        <span className="text-sm font-medium text-purple-700">Back Image:</span>
-                        <img
-                          src={componentToView.backImageUrl}
-                          alt="Back view"
-                          className="mt-2 w-full h-48 object-contain rounded-lg bg-white"
-                        />
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium text-gray-500">Purchase Value</Label>
+                      <div className="text-sm text-gray-900">
+                        {componentToView.purchase_value ? `${componentToView.purchase_currency} ${typeof componentToView.purchase_value === 'number' ? componentToView.purchase_value.toLocaleString() : componentToView.purchase_value}` : '-'}
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
-              )}
-
-              <div className="flex justify-end pt-4">
-                <Button
-                  onClick={() => {
-                    setIsInfoDialogOpen(false)
-                    setComponentToView(null)
-                  }}
-                >
-                  Close
-                </Button>
               </div>
             </div>
           )}

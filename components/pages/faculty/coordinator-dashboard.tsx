@@ -24,6 +24,7 @@ import {
   XCircle, 
   Package, 
   BookOpen, 
+  FolderOpen,
   Calendar,
   AlertTriangle,
   User,
@@ -43,6 +44,7 @@ import { LibraryManagement } from "@/components/pages/faculty/library-management
 import { LibraryInventoryStatus } from "@/components/pages/faculty/library-inventory-status"
 import { LabInventoryStatus } from "@/components/pages/faculty/lab-inventory-status"
 import { LabComponentsManagement } from "./lab-components-management"
+import { FacultyProjectRequests } from "./faculty-project-requests"
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -50,6 +52,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import StatusBarChart from "@/components/StatusBarChart";
+import PlatformManagerFeedbacks from "@/components/pages/faculty/platform-manager-feedbacks";
+import DeveloperFeedbacks from "@/components/pages/faculty/developer-feedbacks";
 
 interface ComponentRequest {
   id: string
@@ -114,6 +118,25 @@ interface LibraryRequest {
   }
 }
 
+interface Project {
+  id: string;
+  name: string;
+  description: string;
+  status: string;
+  expected_completion_date: string;
+  created_date: string;
+  faculty_creator?: {
+    user: {
+      name: string;
+      email: string;
+    };
+  };
+  components_needed_details?: Array<{
+    id: string;
+    component_name: string;
+  }>;
+}
+
 type RequestUnion = ComponentRequest | LibraryRequest
 
 function isComponentRequest(request: RequestUnion): request is ComponentRequest {
@@ -129,6 +152,7 @@ export function CoordinatorDashboard() {
   const { toast } = useToast()
   const [componentRequests, setComponentRequests] = useState<ComponentRequest[]>([])
   const [libraryRequests, setLibraryRequests] = useState<LibraryRequest[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [facultyNotes, setFacultyNotes] = useState("")
   // Set default tab to 'analytics'
@@ -143,13 +167,15 @@ export function CoordinatorDashboard() {
     description?: string;
     hasLibraryItems?: boolean;
     hasLabComponents?: boolean;
+    hasProjectsManagement?: boolean;
+    status?: string; // Added status for domain assignment
   }>>([])
 
   // New state for selected domain
   const [selectedDomain, setSelectedDomain] = useState(coordinatorDomains[0])
 
-  // Add role selection state
-  const [selectedRole, setSelectedRole] = useState<'library' | 'lab' | null>(null)
+  // Update selectedRole state to include new roles
+  const [selectedRole, setSelectedRole] = useState<'library' | 'lab' | 'projects' | 'platformManager' | 'developer' | null>(null)
 
   // In the CoordinatorDashboard component, add state for history search and filter:
   const [historySearchTerm, setHistorySearchTerm] = useState("");
@@ -157,25 +183,57 @@ export function CoordinatorDashboard() {
 
   const [activeLoansPage, setActiveLoansPage] = useState(1);
 
+  // Add detection for platform manager and developer roles
+  const [hasPlatformManagerRole, setHasPlatformManagerRole] = useState(false);
+  const [hasDeveloperRole, setHasDeveloperRole] = useState(false);
+
   useEffect(() => {
     fetchRequests()
     fetchCoordinatorDomains()
-  }, [])
+    // Replace roles array check with profileData flags
+    if (user?.profileData) {
+      setHasPlatformManagerRole(!!user.profileData.isPlatformManager);
+      setHasDeveloperRole(!!user.profileData.isDeveloper);
+    }
+  }, [user])
 
   // Auto-select role if faculty has only one role
   useEffect(() => {
-    if (coordinatorDomains.length > 0 && !selectedRole) {
-      const hasLibraryRole = coordinatorDomains.some(domain => domain.hasLibraryItems)
-      const hasLabRole = coordinatorDomains.some(domain => domain.hasLabComponents)
-      
-      if (hasLibraryRole && !hasLabRole) {
-        setSelectedRole('library')
-      } else if (hasLabRole && !hasLibraryRole) {
-        setSelectedRole('lab')
+    if (!selectedRole) {
+      const hasLibraryRole = coordinatorDomains.some(domain => domain.hasLibraryItems);
+      const hasLabRole = coordinatorDomains.some(domain => domain.hasLabComponents);
+      const hasProjectsRole = coordinatorDomains.some(domain => domain.hasProjectsManagement);
+      // Treat a domain named 'Platform Manager', 'Platform Management', or 'Developer' as special roles
+      const hasPlatformManagerDomain = coordinatorDomains.some(domain => {
+        const name = domain.name?.toLowerCase() || '';
+        return name.includes('platform manager') || name.includes('platform management');
+      });
+      const hasDeveloperDomain = coordinatorDomains.some(domain => {
+        const name = domain.name?.toLowerCase() || '';
+        return name.includes('developer');
+      });
+      const hasPlatformManagerRoleUnified = hasPlatformManagerRole || hasPlatformManagerDomain;
+      const hasDeveloperRoleUnified = hasDeveloperRole || hasDeveloperDomain;
+
+      if (hasLibraryRole && !hasLabRole && !hasProjectsRole && !hasPlatformManagerRoleUnified && !hasDeveloperRoleUnified) {
+        setSelectedRole('library');
+      } else if (hasLabRole && !hasLibraryRole && !hasProjectsRole && !hasPlatformManagerRoleUnified && !hasDeveloperRoleUnified) {
+        setSelectedRole('lab');
+      } else if (hasProjectsRole && !hasLibraryRole && !hasLabRole && !hasPlatformManagerRoleUnified && !hasDeveloperRoleUnified) {
+        setSelectedRole('projects');
+      } else if (hasPlatformManagerRoleUnified && !hasLibraryRole && !hasLabRole && !hasProjectsRole && !hasDeveloperRoleUnified) {
+        setSelectedRole('platformManager');
+      } else if (hasDeveloperRoleUnified && !hasLibraryRole && !hasLabRole && !hasProjectsRole && !hasPlatformManagerRoleUnified) {
+        setSelectedRole('developer');
       }
-      // If both roles exist, don't auto-select - let user choose
+      // If multiple roles exist, don't auto-select - let user choose
     }
-  }, [coordinatorDomains, selectedRole])
+  }, [coordinatorDomains, selectedRole, hasPlatformManagerRole, hasDeveloperRole]);
+
+  // Reset activeTab to 'analytics' whenever selectedRole changes
+  useEffect(() => {
+    setActiveTab('analytics');
+  }, [selectedRole]);
 
   const fetchCoordinatorDomains = async () => {
     try {
@@ -193,21 +251,42 @@ export function CoordinatorDashboard() {
             // Always show roles if assigned, regardless of inventory
             const hasLibraryItems = domain.name.toLowerCase().includes("library");
             const hasLabComponents = domain.name.toLowerCase().includes("lab");
+            const hasProjectsManagement = domain.name.toLowerCase().includes("project");
 
             return {
               ...domain,
               hasLibraryItems,
-              hasLabComponents
+              hasLabComponents,
+              hasProjectsManagement,
+              status: 'Assigned' // Mark as assigned
             }
           } catch (error) {
             console.error(`Error checking inventory for domain ${domain.name}:`, error)
-            return { ...domain, hasLibraryItems: false, hasLabComponents: false }
+            return { ...domain, hasLibraryItems: false, hasLabComponents: false, hasProjectsManagement: false, status: 'Not Assigned' } // Mark as not assigned
           }
         })
       )
       
       setCoordinatorDomains(enhancedDomains)
       setSelectedDomain(enhancedDomains[0]) // Set default selected domain
+      
+      // If user has projects coordinator role, fetch projects immediately
+      const hasProjectsRole = enhancedDomains.some(domain => domain.hasProjectsManagement);
+      if (hasProjectsRole) {
+        console.log('[Debug] User has projects role, fetching projects...');
+        try {
+          const projectsResponse = await fetch("/api/projects/approve", {
+            headers: { "x-user-id": user?.id || "" }
+          })
+          if (projectsResponse.ok) {
+            const projectsData = await projectsResponse.json()
+            console.log('[Debug] Initial projects data received:', projectsData);
+            setProjects(projectsData.projects || [])
+          }
+        } catch (error) {
+          console.error('[Debug] Error fetching initial projects:', error);
+        }
+      }
     } catch (error) {
       console.error("Error fetching coordinator domains:", error)
     }
@@ -230,6 +309,22 @@ export function CoordinatorDashboard() {
       })
       const libraryData = await libraryResponse.json()
       setLibraryRequests(libraryData.requests || [])
+
+      // Fetch projects for projects coordinator
+      if (selectedRole === 'projects') {
+        console.log('[Debug] Fetching projects for projects coordinator...');
+        const projectsResponse = await fetch("/api/projects/approve", {
+          headers: { "x-user-id": user?.id || "" }
+        })
+        if (projectsResponse.ok) {
+          const projectsData = await projectsResponse.json()
+          console.log('[Debug] Projects data received:', projectsData);
+          console.log('[Debug] Projects count:', projectsData.projects?.length || 0);
+          setProjects(projectsData.projects || [])
+        } else {
+          console.error('[Debug] Failed to fetch projects:', projectsResponse.status, projectsResponse.statusText);
+        }
+      }
     } catch (error) {
       console.error("Error fetching requests:", error)
       toast({
@@ -424,13 +519,49 @@ export function CoordinatorDashboard() {
     }
   };
 
+  const handleApproveProject = async (projectId: string, status: "APPROVED" | "REJECTED", notes?: string) => {
+    try {
+      const response = await fetch("/api/projects/approve", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": user?.id || "",
+        },
+        body: JSON.stringify({
+          project_id: projectId,
+          status,
+          notes,
+        }),
+      })
+
+      if (response.ok) {
+        await fetchRequests()
+        toast({
+          title: "Success",
+          description: `Project ${status.toLowerCase()} successfully`,
+        })
+      } else {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to update project")
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update project",
+        variant: "destructive",
+      })
+    }
+  };
+
   const getStatusBadge = (status: string, isOverdueItem?: boolean) => {
     const baseClass = "font-medium"
     switch (status) {
       case "PENDING":
         return <Badge className={`bg-yellow-100 text-yellow-800 ${baseClass}`}>Pending Review</Badge>
       case "APPROVED":
-        return <Badge className={`bg-blue-100 text-blue-800 ${baseClass}`}>Approved - Awaiting Collection</Badge>
+        return <Badge className={`bg-blue-100 text-blue-800 ${baseClass}`}>
+          {selectedRole === 'projects' ? 'Approved - Awaiting Start' : 'Approved - Awaiting Collection'}
+        </Badge>
       case "COLLECTED":
         return isOverdueItem ? 
           <Badge className={`bg-red-100 text-red-800 ${baseClass}`}>Collected - Overdue</Badge> :
@@ -537,11 +668,20 @@ export function CoordinatorDashboard() {
   // Determine if user is a library coordinator
   const isLibraryCoordinator = coordinatorDomains.some(domain => domain.hasLibraryItems)
 
+  // Determine if user is a projects coordinator
+  const isProjectsCoordinator = coordinatorDomains.some(domain => domain.hasProjectsManagement)
+
   // Add tabs for management based on selected coordinator role
   const dashboardTabs = [
     { id: 'analytics', label: 'Analytics' },
-    { id: 'collection', label: 'Awaiting Collection' },
-    { id: 'returns', label: 'Active Loans' },
+    { 
+      id: 'collection', 
+      label: selectedRole === 'projects' ? 'Pending Requests' : 'Awaiting Collection' 
+    },
+    { 
+      id: 'returns', 
+      label: selectedRole === 'projects' ? 'Ongoing Projects' : 'Active Loans' 
+    },
     { id: 'history', label: 'History' },
   ];
   
@@ -625,6 +765,30 @@ export function CoordinatorDashboard() {
         historyRequests: history,
         roleName: 'Lab'
       }
+    } else if (selectedRole === 'projects') {
+      // Projects coordinator - map project statuses to interface expectations
+      console.log('[Debug] Projects data for mapping:', projects);
+      console.log('[Debug] Total projects count:', projects.length);
+      
+      const pendingProjects = projects.filter(proj => proj.status === 'PENDING');
+      const ongoingProjects = projects.filter(proj => proj.status === 'ONGOING' || proj.status === 'APPROVED');
+      const completedProjects = projects.filter(proj => proj.status === 'COMPLETED' || proj.status === 'REJECTED');
+      
+      console.log('[Debug] Pending projects:', pendingProjects.length);
+      console.log('[Debug] Ongoing projects:', ongoingProjects.length);
+      console.log('[Debug] Completed projects:', completedProjects.length);
+      
+      console.log('[Debug] Project statuses found:', projects.map(p => p.status));
+      
+      return {
+        requests: projects as any[], // Projects as requests for analytics
+        pendingRequests: pendingProjects as any[], // Pending projects for "Pending Requests" tab
+        collectionRequests: [], // Empty for projects
+        returnRequests: ongoingProjects as any[], // Ongoing projects for "Ongoing Projects" tab  
+        pendingReturnRequests: [], // Empty for projects
+        historyRequests: completedProjects as any[], // Completed/rejected projects for history
+        roleName: 'Projects'
+      }
     }
     return {
       requests: [] as RequestUnion[],
@@ -639,15 +803,47 @@ export function CoordinatorDashboard() {
 
   const { requests, pendingRequests, collectionRequests, returnRequests, pendingReturnRequests, historyRequests, roleName } = getRoleSpecificRequests()
 
-  // Check if faculty has multiple roles
-  const hasMultipleRoles = coordinatorDomains.some(domain => domain.hasLibraryItems) && 
-                          coordinatorDomains.some(domain => domain.hasLabComponents)
+  // Check if faculty has multiple roles (coordinator, platform manager, developer)
+  const hasAnyCoordinatorRole = coordinatorDomains.length > 0;
+  const hasAnySpecialRole = hasPlatformManagerRole || hasDeveloperRole;
+  const hasMultipleRoles = (
+    (coordinatorDomains.some(domain => domain.hasLibraryItems) && coordinatorDomains.some(domain => domain.hasLabComponents)) ||
+    (coordinatorDomains.some(domain => domain.hasLibraryItems) && coordinatorDomains.some(domain => domain.hasProjectsManagement)) ||
+    (coordinatorDomains.some(domain => domain.hasLabComponents) && coordinatorDomains.some(domain => domain.hasProjectsManagement)) ||
+    (hasAnyCoordinatorRole && hasPlatformManagerRole) ||
+    (hasAnyCoordinatorRole && hasDeveloperRole) ||
+    (hasPlatformManagerRole && hasDeveloperRole)
+  );
 
-  if (!loading && coordinatorDomains.length === 0) {
+  // Role detection: build a list of all roles
+  const hasLibraryRole = coordinatorDomains.some(domain => domain.hasLibraryItems);
+  const hasLabRole = coordinatorDomains.some(domain => domain.hasLabComponents);
+  const hasProjectsRole = coordinatorDomains.some(domain => domain.hasProjectsManagement);
+  const hasPlatformManagerDomain = coordinatorDomains.some(domain => {
+    const name = domain.name?.toLowerCase() || '';
+    return name.includes('platform manager') || name.includes('platform management');
+  });
+  const hasDeveloperDomain = coordinatorDomains.some(domain => {
+    const name = domain.name?.toLowerCase() || '';
+    return name.includes('developer');
+  });
+  const hasPlatformManagerRoleUnified = hasPlatformManagerRole || hasPlatformManagerDomain;
+  const hasDeveloperRoleUnified = hasDeveloperRole || hasDeveloperDomain;
+  // Use these unified flags everywhere below
+
+  // Build roles array for card/toggle rendering
+  const userRoles: Array<'library' | 'lab' | 'projects' | 'platformManager' | 'developer'> = [];
+  if (hasLibraryRole) userRoles.push('library');
+  if (hasLabRole) userRoles.push('lab');
+  if (hasProjectsRole) userRoles.push('projects');
+  if (hasPlatformManagerRoleUnified) userRoles.push('platformManager');
+  if (hasDeveloperRoleUnified) userRoles.push('developer');
+
+  if (!loading && !hasAnyCoordinatorRole && !hasAnySpecialRole) {
     return (
       <div className="flex flex-col items-center justify-center h-64">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">CIE Team Coordinator Dashboard</h1>
-        <div className="text-lg text-gray-600">You are not assigned as a coordinator for any domain.</div>
+        <h1 className="faculty-page-title">CIE Team Coordinator Dashboard</h1>
+        <div className="text-lg text-gray-600">You are not assigned as a coordinator, platform manager, or developer.</div>
       </div>
     );
   }
@@ -660,26 +856,18 @@ export function CoordinatorDashboard() {
     )
   }
 
-  // Always render the tabbed dashboard interface below
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">CIE Team Coordinator Dashboard</h1>
-      </div>
-
-      {/* Role Selection - Show when faculty has multiple roles and no role is selected */}
-      {hasMultipleRoles && !selectedRole && (
-        <div className="space-y-6">
-          <div className="text-center">
-            
-            <p className="text-gray-600">Choose which coordinator role you want to manage</p>
-                </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-        <Card 
-              className="cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-105 hover:bg-blue-50 hover:border-blue-300"
-              onClick={() => setSelectedRole('library')}
-            >
+  // Show role selection cards if user has any of the roles
+  if ((userRoles.length > 1 || (!hasAnyCoordinatorRole && hasAnySpecialRole)) && !selectedRole) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center">
+          <h1 className="faculty-page-title">CIE Team Coordinator Dashboard</h1>
+          <p className="text-gray-600">Choose which role you want to manage</p>
+        </div>
+        <div className="mt-10"></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
+          {userRoles.includes('library') && (
+            <Card className="cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-105 hover:bg-blue-50 hover:border-blue-300" onClick={() => setSelectedRole('library')}>
               <CardContent className="p-8 text-center">
                 <BookOpen className="h-16 w-16 text-blue-600 mx-auto mb-4" />
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">Library Coordinator</h3>
@@ -687,14 +875,12 @@ export function CoordinatorDashboard() {
                 <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
                   <Package className="h-4 w-4" />
                   <span>Library Management</span>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card 
-              className="cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-105 hover:bg-green-50 hover:border-green-300"
-              onClick={() => setSelectedRole('lab')}
-            >
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {userRoles.includes('lab') && (
+            <Card className="cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-105 hover:bg-green-50 hover:border-green-300" onClick={() => setSelectedRole('lab')}>
               <CardContent className="p-8 text-center">
                 <Package className="h-16 w-16 text-green-600 mx-auto mb-4" />
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">Lab Coordinator</h3>
@@ -702,33 +888,88 @@ export function CoordinatorDashboard() {
                 <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
                   <Package className="h-4 w-4" />
                   <span>Lab Components Management</span>
-            </div>
-          </CardContent>
-        </Card>
-          </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {userRoles.includes('projects') && (
+            <Card className="cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-105 hover:bg-purple-50 hover:border-purple-300" onClick={() => setSelectedRole('projects')}>
+              <CardContent className="p-8 text-center">
+                <FolderOpen className="h-16 w-16 text-purple-600 mx-auto mb-4" />
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Projects Coordinator</h3>
+                <p className="text-gray-600 mb-4">Review and approve faculty project requests</p>
+                <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+                  <FolderOpen className="h-4 w-4" />
+                  <span>Project Requests Management</span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {userRoles.includes('platformManager') && (
+            <Card className="cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-105 hover:bg-indigo-50 hover:border-indigo-300" onClick={() => setSelectedRole('platformManager')}>
+              <CardContent className="p-8 text-center">
+                <Settings className="h-16 w-16 text-indigo-600 mx-auto mb-4" />
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Platform Manager</h3>
+                <p className="text-gray-600 mb-4">Review and approve faculty insights, assign to developers</p>
+                <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+                  <Settings className="h-4 w-4" />
+                  <span>Insights Management</span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {userRoles.includes('developer') && (
+            <Card className="cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-105 hover:bg-pink-50 hover:border-pink-300" onClick={() => setSelectedRole('developer')}>
+              <CardContent className="p-8 text-center">
+                <BarChart3 className="h-16 w-16 text-pink-600 mx-auto mb-4" />
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Developer</h3>
+                <p className="text-gray-600 mb-4">Work on approved insights and mark as done</p>
+                <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+                  <BarChart3 className="h-4 w-4" />
+                  <span>Insights Tasks</span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
-      )}
+      </div>
+    );
+  }
 
+  // Always render the tabbed dashboard interface below
+  return (
+    <div className="space-y-6">
+      {/* <div style={{ position: 'fixed', top: 60, right: 20, zIndex: 9999, background: '#fffbe6', color: '#333', padding: '8px 16px', border: '1px solid #ffe58f', borderRadius: 6, fontSize: 14 }}>
+        Debug: selectedRole = {String(selectedRole)}
+      </div> */}
+      <div>
+        <h1 className="faculty-page-title">CIE Team Coordinator Dashboard</h1>
+      </div>
       {/* Role Selection Buttons - Show when role is selected to allow switching */}
-      {hasMultipleRoles && selectedRole && (
-        <div className="flex flex-wrap gap-4">
-          <Button
-            variant={selectedRole === 'library' ? 'default' : 'outline'}
-            onClick={() => setSelectedRole('library')}
-            className="flex items-center space-x-2"
-          >
-            <BookOpen className="h-4 w-4" />
-            <span>Library Coordinator</span>
-          </Button>
-          <Button
-            variant={selectedRole === 'lab' ? 'default' : 'outline'}
-            onClick={() => setSelectedRole('lab')}
-            className="flex items-center space-x-2"
-          >
-            <Package className="h-4 w-4" />
-            <span>Lab Coordinator</span>
-          </Button>
-            </div>
+      {userRoles.length > 1 && selectedRole && (
+        <div className="flex flex-wrap gap-4 mb-4">
+          {userRoles.map(role => (
+            <Button
+              key={role}
+              variant={selectedRole === role ? 'default' : 'outline'}
+              onClick={() => setSelectedRole(role)}
+              className="flex items-center space-x-2"
+            >
+              {role === 'library' && <BookOpen className="h-4 w-4" />}
+              {role === 'lab' && <Package className="h-4 w-4" />}
+              {role === 'projects' && <FolderOpen className="h-4 w-4" />}
+              {role === 'platformManager' && <Settings className="h-4 w-4" />}
+              {role === 'developer' && <BarChart3 className="h-4 w-4" />}
+              <span>
+                {role === 'library' && 'Library Coordinator'}
+                {role === 'lab' && 'Lab Coordinator'}
+                {role === 'projects' && 'Projects Coordinator'}
+                {role === 'platformManager' && 'Platform Manager'}
+                {role === 'developer' && 'Developer'}
+              </span>
+            </Button>
+          ))}
+        </div>
       )}
 
       {/* Role-Specific Dashboard Content */}
@@ -741,7 +982,7 @@ export function CoordinatorDashboard() {
 
           {/* Clickable Summary Cards with Hover Effects */}
           {/* Dashboard Horizontal Pill Cards for Library and Lab Coordinators */}
-          {(selectedRole === 'library' && isLibraryCoordinator) || (selectedRole === 'lab' && isLabCoordinator) ? (
+          {(selectedRole === 'library' && isLibraryCoordinator) || (selectedRole === 'lab' && isLabCoordinator) || (selectedRole === 'projects' && isProjectsCoordinator) ? (
             <div className="flex flex-row gap-6 justify-center items-center my-6">
               <button
                 className={`flex flex-col items-center justify-center px-8 py-6 rounded-2xl border transition-all duration-200 shadow-sm min-w-[220px] max-w-[260px] h-[110px] text-center select-none
@@ -757,7 +998,9 @@ export function CoordinatorDashboard() {
                 onClick={() => setActiveTab('collection')}
               >
                 <CheckCircle className={`h-6 w-6 mb-1 ${activeTab === 'collection' ? 'text-blue-600' : 'text-blue-400'}`} />
-                <span className={`text-base font-medium ${activeTab === 'collection' ? 'text-blue-600' : 'text-gray-800'}`}>Awaiting Collection</span>
+                <span className={`text-base font-medium ${activeTab === 'collection' ? 'text-blue-600' : 'text-gray-800'}`}>
+                  {selectedRole === 'projects' ? 'Pending Requests' : 'Awaiting Collection'}
+                </span>
               </button>
               <button
                 className={`flex flex-col items-center justify-center px-8 py-6 rounded-2xl border transition-all duration-200 shadow-sm min-w-[220px] max-w-[260px] h-[110px] text-center select-none
@@ -765,7 +1008,9 @@ export function CoordinatorDashboard() {
                 onClick={() => setActiveTab('returns')}
               >
                 <Package className={`h-6 w-6 mb-1 ${activeTab === 'returns' ? 'text-green-600' : 'text-green-400'}`} />
-                <span className={`text-base font-medium ${activeTab === 'returns' ? 'text-green-600' : 'text-gray-800'}`}>Active Loans</span>
+                <span className={`text-base font-medium ${activeTab === 'returns' ? 'text-green-600' : 'text-gray-800'}`}>
+                  {selectedRole === 'projects' ? 'Active Projects' : 'Active Loans'}
+                </span>
               </button>
               <button
                 className={`flex flex-col items-center justify-center px-8 py-6 rounded-2xl border transition-all duration-200 shadow-sm min-w-[220px] max-w-[260px] h-[110px] text-center select-none
@@ -781,452 +1026,558 @@ export function CoordinatorDashboard() {
           {/* Dashboard Tabs - removed as per user request, navigation is now only via cards */}
 
           {/* Tab Content */}
-          {activeTab === 'analytics' && selectedRole && (
-        <div className="space-y-4">
-              <h2 className="text-xl font-semibold">{roleName} Analytics Dashboard</h2>
-              
-          
-          {/* Minimal Stat Cards Row - outside the graph section */}
-          <div className="flex flex-row flex-wrap gap-2 mb-2 justify-center">
-            <div className="flex-1 min-w-[100px] max-w-[140px] bg-white rounded shadow-sm px-2 py-1 flex flex-col items-center justify-center text-center border border-gray-200">
-              <div className="text-xs text-gray-500 font-medium mb-0.5">Total Requests</div>
-              <div className="text-lg font-bold leading-tight">{requests.length}</div>
-            </div>
-            <div className="flex-1 min-w-[100px] max-w-[140px] bg-white rounded shadow-sm px-2 py-1 flex flex-col items-center justify-center text-center border border-gray-200">
-              <div className="text-xs text-gray-500 font-medium mb-0.5">Active Loans</div>
-              <div className="text-lg font-bold leading-tight">{returnRequests.length}</div>
-            </div>
-            <div className="flex-1 min-w-[100px] max-w-[140px] bg-white rounded shadow-sm px-2 py-1 flex flex-col items-center justify-center text-center border border-gray-200">
-              <div className="text-xs text-gray-500 font-medium mb-0.5">Overdue</div>
-              <div className="text-lg font-bold leading-tight text-red-600">{returnRequests.filter(req => isOverdue(req.due_date)).length}</div>
-            </div>
-          </div>
-          {/* Request Status Overview - Only the graph in the card, no extra border or div below */}
-          <div className="bg-white shadow rounded-t-lg px-4 pt-4 pb-2">
-            <div>
-              <StatusBarChart
-                title={''}
-                data={[
-                  { label: 'Pending', count: pendingRequests.length, color: '#FFC107' },
-                  { label: 'Awaiting', count: collectionRequests.length, color: '#2196F3' },
-                  { label: 'Collected', count: returnRequests.length, color: '#4CAF50' },
-                  { label: 'Returned', count: requests.filter(req => req.status === "RETURNED").length, color: '#757575' },
-                  { label: 'Rejected', count: requests.filter(req => req.status === "REJECTED").length, color: '#F44336' },
-                ]}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+          {activeTab === 'analytics' && (selectedRole === 'library' || selectedRole === 'lab' || selectedRole === 'projects') && (
+            <Card>
+              <CardHeader>
+                <CardTitle>{roleName} Analytics Dashboard</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {/* Minimal Stat Cards Row - outside the graph section */}
+                <div className="flex flex-row flex-wrap gap-2 mb-2 justify-center">
+                  <div className="flex-1 min-w-[100px] max-w-[140px] bg-white rounded shadow-sm px-2 py-1 flex flex-col items-center justify-center text-center border border-gray-200">
+                    <div className="text-xs text-gray-500 font-medium mb-0.5">Total Requests</div>
+                    <div className="text-lg font-bold leading-tight">{requests.length}</div>
+                  </div>
+                  <div className="flex-1 min-w-[100px] max-w-[140px] bg-white rounded shadow-sm px-2 py-1 flex flex-col items-center justify-center text-center border border-gray-200">
+                    <div className="text-xs text-gray-500 font-medium mb-0.5">
+                      {selectedRole === 'projects' ? 'Active Projects' : 'Active Loans'}
+                    </div>
+                    <div className="text-lg font-bold leading-tight">{returnRequests.length}</div>
+                  </div>
+                  <div className="flex-1 min-w-[100px] max-w-[140px] bg-white rounded shadow-sm px-2 py-1 flex flex-col items-center justify-center text-center border border-gray-200">
+                    <div className="text-xs text-gray-500 font-medium mb-0.5">Overdue</div>
+                    <div className="text-lg font-bold leading-tight text-red-600">{returnRequests.filter(isOverdue).length}</div>
+                  </div>
+                </div>
+                {/* Request Status Overview - Only the graph in the card, no extra border or div below */}
+                <div className="bg-white shadow rounded-t-lg px-4 pt-4 pb-2">
+                  <StatusBarChart
+                    title={''}
+                    data={selectedRole === 'projects' ? [
+                      { label: 'Pending', count: pendingRequests.length, color: '#FFC107' },
+                      { label: 'Ongoing', count: returnRequests.length, color: '#4CAF50' },
+                      { label: 'Completed', count: requests.filter(req => req.status === "RETURNED").length, color: '#757575' },
+                      { label: 'Rejected', count: requests.filter(req => req.status === "REJECTED").length, color: '#F44336' },
+                    ] : [
+                      { label: 'Pending', count: pendingRequests.length, color: '#FFC107' },
+                      { label: 'Awaiting', count: collectionRequests.length, color: '#2196F3' },
+                      { label: 'Collected', count: returnRequests.length, color: '#4CAF50' },
+                      { label: 'Returned', count: requests.filter(req => req.status === "RETURNED").length, color: '#757575' },
+                      { label: 'Rejected', count: requests.filter(req => req.status === "REJECTED").length, color: '#F44336' },
+                    ]}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {activeTab === 'collection' && selectedRole && (
-        <div className="space-y-4">
-              <h2 className="text-xl font-semibold">{roleName} Collection Management</h2>
-              
-              {collectionRequests.length === 0 ? (
-                <Card>
-                  <CardContent className="p-8 text-center">
-                    <CheckCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No items awaiting collection</h3>
-                    <p className="text-gray-600">All approved {roleName.toLowerCase()} items have been collected.</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card>
-                  <CardContent className="p-0">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="text-left text-black font-bold">Requester</TableHead>
-                          <TableHead className="text-left text-black font-bold">{roleName} Item</TableHead>
-                          <TableHead className="text-center text-black font-bold">Qty</TableHead>
-                          <TableHead className="text-center text-black font-bold">Request Date</TableHead>
-                          <TableHead className="text-center text-black font-bold">Required Date</TableHead>
-                          <TableHead className="text-center text-black font-bold">Status</TableHead>
-                          <TableHead className="text-center text-black font-bold">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {collectionRequests.map((request) => {
-                          const requesterId = request.student?.student_id || "N/A";
-                          const requesterType = getRequesterType(request);
-                          
-                          return (
-                            <TableRow key={request.id} className="hover:bg-gray-50">
-                              <TableCell className="font-medium text-sm text-left">
-                                <div>
-                                  <div className="font-medium text-sm">{getRequesterName(request)}</div>
-                                  <div className="text-xs text-gray-500">
-                                    {requesterType === "Student" ? `SRN: ${requesterId}` : requesterType}
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  {selectedRole === 'projects' ? 'Project Requests' : `${roleName} Collection Management`}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {selectedRole === 'projects' ? (
+                  <FacultyProjectRequests onBack={() => setActiveTab('analytics')} />
+                ) : collectionRequests.length === 0 ? (
+                  <Card>
+                    <CardContent className="p-8 text-center">
+                      <CheckCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        {selectedRole === 'projects' ? 'No projects awaiting approval' : 'No items awaiting collection'}
+                      </h3>
+                      <p className="text-gray-600">All approved {roleName.toLowerCase()} items have been collected.</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card>
+                    <CardContent className="p-0">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-left text-black font-bold">Requester</TableHead>
+                            <TableHead className="text-left text-black font-bold">{roleName} Item</TableHead>
+                            <TableHead className="text-center text-black font-bold">Qty</TableHead>
+                            <TableHead className="text-center text-black font-bold">Request Date</TableHead>
+                            <TableHead className="text-center text-black font-bold">Required Date</TableHead>
+                            <TableHead className="text-center text-black font-bold">Status</TableHead>
+                            <TableHead className="text-center text-black font-bold">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {collectionRequests.map((request) => {
+                            const requesterId = request.student?.student_id || "N/A";
+                            const requesterType = getRequesterType(request);
+                            
+                            return (
+                              <TableRow key={request.id} className="hover:bg-gray-50">
+                                <TableCell className="font-medium text-sm text-left">
+                                  <div>
+                                    <div className="font-medium text-sm">{getRequesterName(request)}</div>
+                                    <div className="text-xs text-gray-500">
+                                      {requesterType === "Student" ? `SRN: ${requesterId}` : requesterType}
+                                    </div>
+                                    <div className="text-xs text-gray-500">{getRequesterEmail(request)}</div>
                                   </div>
-                                  <div className="text-xs text-gray-500">{getRequesterEmail(request)}</div>
-                                </div>
-                              </TableCell>
-                              <TableCell className="font-medium text-sm text-left">{getItemName(request)}</TableCell>
-                              <TableCell className="text-sm font-medium text-center">{request.quantity}</TableCell>
-                              <TableCell className="text-sm text-center">
-                                {new Date(request.request_date).toLocaleDateString()}
-                              </TableCell>
-                              <TableCell className="text-sm text-center">
-                                {new Date(request.required_date).toLocaleDateString()}
-                              </TableCell>
-                              <TableCell className="text-center">
-                                {getStatusBadge(request.status)}
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <div className="flex justify-center items-center space-x-1">
-                                  <Button 
-                                    size="sm"
-                                    onClick={() => {
-                                      if (selectedRole === 'library') {
-                                        handleUpdateLibraryRequest(request.id, "COLLECTED")
-                                      } else {
-                                        handleMarkAsCollected(request)
-                                      }
-                                    }}
-                                    className="bg-green-600 hover:bg-green-700"
-                                  >
-                                    <CheckCircle className="h-4 w-4 mr-1" />
-                                    Collect
-                                  </Button>
-                                  
-                                  <Button 
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => {
-                                      if (selectedRole === 'library') {
-                                        handleUpdateLibraryRequest(request.id, "REJECTED")
-                                      } else {
-                                        handleUpdateComponentRequest(request.id, "REJECTED")
-                                      }
-                                    }}
-                                    className="text-red-600 border-red-200 hover:bg-red-50"
-                                  >
-                                    <XCircle className="h-4 w-4 mr-1" />
-                                    Reject
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+                                </TableCell>
+                                <TableCell className="font-medium text-sm text-left">{getItemName(request)}</TableCell>
+                                <TableCell className="text-sm font-medium text-center">{request.quantity}</TableCell>
+                                <TableCell className="text-sm text-center">
+                                  {new Date(request.request_date).toLocaleDateString()}
+                                </TableCell>
+                                <TableCell className="text-sm text-center">
+                                  {new Date(request.required_date).toLocaleDateString()}
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  {getStatusBadge(request.status)}
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <div className="flex justify-center items-center space-x-1">
+                                    <Button 
+                                      size="sm"
+                                      onClick={() => {
+                                        if (selectedRole === 'library') {
+                                          handleUpdateLibraryRequest(request.id, "COLLECTED")
+                                        } else {
+                                          handleMarkAsCollected(request)
+                                        }
+                                      }}
+                                      className="bg-green-600 hover:bg-green-700"
+                                    >
+                                      <CheckCircle className="h-4 w-4 mr-1" />
+                                      Collect
+                                    </Button>
+                                    
+                                    <Button 
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        if (selectedRole === 'library') {
+                                          handleUpdateLibraryRequest(request.id, "REJECTED")
+                                        } else {
+                                          handleUpdateComponentRequest(request.id, "REJECTED")
+                                        }
+                                      }}
+                                      className="text-red-600 border-red-200 hover:bg-red-50"
+                                    >
+                                      <XCircle className="h-4 w-4 mr-1" />
+                                      Reject
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                )}
+              </CardContent>
+            </Card>
           )}
 
           {activeTab === 'returns' && selectedRole && (
-        <div className="space-y-4">
-              {/* Define filteredActiveLoans here */}
-              {(() => {
-                let activeLoans = returnRequests;
-                // --- Filtering Logic for Active Loans ---
-                if (searchTerm.trim() !== "") {
-                  const lower = searchTerm.toLowerCase();
-                  activeLoans = activeLoans.filter(request => {
-                    const name = getRequesterName(request).toLowerCase();
-                    const srn = request.student?.student_id?.toLowerCase?.() || "";
-                    const item = getItemName(request).toLowerCase();
-                    return name.includes(lower) || srn.includes(lower) || item.includes(lower);
-                  });
-                }
-                if (activeFilter === "due") {
-                  activeLoans = activeLoans.filter(request => isOverdue(request.due_date));
-                } else if (activeFilter === "not-due") {
-                  activeLoans = activeLoans.filter(request => !isOverdue(request.due_date));
-                } else if (activeFilter === "student") {
-                  activeLoans = activeLoans.filter(request => request.student);
-                } else if (activeFilter === "faculty") {
-                  activeLoans = activeLoans.filter(request => !request.student);
-                }
-                const filteredActiveLoans = activeLoans;
-                const hasAnyLoans = returnRequests.length > 0;
-
-                if (!hasAnyLoans) {
-                  return (
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  {roleName} {selectedRole === 'projects' ? 'Active Projects' : 'Active Loans'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {selectedRole === 'projects' ? (
+                  /* Projects-specific rendering */
+                  returnRequests.length === 0 ? (
                     <Card>
                       <CardContent className="p-8 text-center">
                         <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">No active {roleName.toLowerCase()} loans</h3>
-                        <p className="text-gray-600">All {roleName.toLowerCase()} items have been returned.</p>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No active projects</h3>
+                        <p className="text-gray-600">All projects are either pending approval or completed.</p>
                       </CardContent>
                     </Card>
-                  );
-                }
-
-                const activeLoansRowsPerPage = 8;
-                const activeLoansTotalPages = Math.ceil(filteredActiveLoans.length / activeLoansRowsPerPage);
-                const paginatedActiveLoans = filteredActiveLoans.slice((activeLoansPage - 1) * activeLoansRowsPerPage, activeLoansPage * activeLoansRowsPerPage);
-
-                return (
-                  <div className="space-y-4">
-                    <h2 className="text-xl font-semibold">{roleName} Active Loans</h2>
-                    {/* Search and Filter Bar */}
-                    <div className="flex items-center space-x-4 mb-4">
-                      <div className="flex items-center space-x-2">
-                        <Search className="h-4 w-4 text-gray-500" />
-                        <Input
-                          placeholder="Search by name or item..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="max-w-sm"
-                        />
-                      </div>
-                      
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm" className="flex items-center space-x-2">
-                            <Filter className="h-4 w-4" />
-                            <span>
-                              {activeFilter === 'all' ? 'All' :
-                               activeFilter === 'due' ? 'Due' :
-                               activeFilter === 'not-due' ? 'Not Due' :
-                               activeFilter === 'student' ? 'Student' :
-                               'Faculty'}
-                            </span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {['all', 'due', 'not-due', 'student', 'faculty'].map((filter) => (
-                            <DropdownMenuItem
-                              key={filter}
-                              onClick={() => setActiveFilter(filter)}
-                              className={activeFilter === filter ? 'bg-gray-100' : ''}
-                            >
-                              {filter === 'all' ? 'All' :
-                               filter === 'due' ? 'Due' :
-                               filter === 'not-due' ? 'Not Due' :
-                               filter === 'student' ? 'Student' :
-                               'Faculty'}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-
+                  ) : (
                     <Card>
                       <CardContent className="p-0">
                         <Table>
                           <TableHeader>
                             <TableRow>
-                              <TableHead className="text-left text-black font-bold">Borrower</TableHead>
-                              <TableHead className="text-left text-black font-bold">{roleName} Item</TableHead>
-                              <TableHead className="text-center text-black font-bold">Qty</TableHead>
+                              <TableHead className="text-left text-black font-bold">Project Name</TableHead>
+                              <TableHead className="text-left text-black font-bold">Faculty</TableHead>
                               <TableHead className="text-center text-black font-bold">Status</TableHead>
-                              <TableHead className="text-center text-black font-bold">Collected</TableHead>
-                              <TableHead className="text-center text-black font-bold">Due Date</TableHead>
-                              <TableHead className="text-center text-black font-bold">Fine</TableHead>
+                              <TableHead className="text-center text-black font-bold">Start Date</TableHead>
+                              <TableHead className="text-center text-black font-bold">Students Enrolled</TableHead>
                               <TableHead className="text-center text-black font-bold">Actions</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {paginatedActiveLoans.length === 0 ? (
-                              <TableRow>
-                                <TableCell colSpan={8} className="text-center py-8 text-gray-500">
-                                  No results found for the current search/filter.
+                            {returnRequests.map((project) => (
+                              <TableRow key={project.id} className="hover:bg-gray-50">
+                                <TableCell className="font-medium text-sm text-left">{project.name}</TableCell>
+                                <TableCell className="font-medium text-sm text-left">
+                                  {project.faculty_creator?.user?.name || project.faculty?.user?.name || "Unknown"}
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  {getStatusBadge(project.status)}
+                                </TableCell>
+                                <TableCell className="text-sm text-center">
+                                  {project.created_date ? new Date(project.created_date).toLocaleDateString() : 
+                                   project.createdAt ? new Date(project.createdAt).toLocaleDateString() : "-"}
+                                </TableCell>
+                                <TableCell className="text-sm text-center">
+                                  {project.enrolled_students?.length || project.enrolledStudents?.length || 0} / {project.enrollment_cap || project.maxStudents || "-"}
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <div className="flex justify-center items-center space-x-1">
+                                    <Button 
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                                      onClick={() => {
+                                        // Add view project details functionality
+                                        console.log('View project details:', project.id);
+                                      }}
+                                    >
+                                      View Details
+                                    </Button>
+                                    {project.status === 'ONGOING' && (
+                                      <Button
+                                        size="sm"
+                                        className="bg-green-600 hover:bg-green-700"
+                                        onClick={() => handleApproveProject(project.id, "APPROVED", "Project marked as completed")}
+                                      >
+                                        Mark Complete
+                                      </Button>
+                                    )}
+                                  </div>
                                 </TableCell>
                               </TableRow>
-                            ) : (
-                              paginatedActiveLoans.map((request) => {
-                                const overdue = isOverdue(request.due_date)
-                                const daysOverdue = getDaysOverdue(request.due_date)
-                                const borrower = request.student?.user?.name || request.faculty?.user?.name || "Unknown"
-                                const borrowerId = request.student?.student_id || "Faculty"
-                                return (
-                                  <TableRow key={request.id} className="hover:bg-gray-50">
-                                    <TableCell className="font-medium text-sm text-left">
-                                      <div>
-                                        <div className="font-medium text-sm">{borrower}</div>
-                                        <div className="text-xs text-gray-500">
-                                          {request.student ? `SRN: ${borrowerId}` : 'Faculty'}
-                                        </div>
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="font-medium text-sm text-left">{getItemName(request)}</TableCell>
-                                    <TableCell className="text-sm font-medium text-center">{request.quantity}</TableCell>
-                                    <TableCell className="text-center">
-                                      {overdue ? (
-                                        <Badge className="bg-red-100 text-red-800 font-medium">
-                                          Due
-                                        </Badge>
-                                      ) : (
-                                        <Badge className="bg-yellow-100 text-yellow-800 font-medium">
-                                          Not Due
-                                        </Badge>
-                                      )}
-                                    </TableCell>
-                                    <TableCell className="text-sm text-center">
-                                      <span className="text-sm">
-                                        {request.collection_date ? new Date(request.collection_date).toLocaleDateString() : "-"}
-                                      </span>
-                                    </TableCell>
-                                    <TableCell className="text-sm text-center">
-                                      <span className={`text-sm ${overdue ? 'text-red-600 font-medium' : ''}`}>
-                                        {request.due_date ? new Date(request.due_date).toLocaleDateString() : "-"}
-                                      </span>
-                                      {overdue && (
-                                        <div className="text-xs text-red-600">
-                                          {daysOverdue} days late
-                                        </div>
-                                      )}
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                      {request.fine_amount && request.fine_amount > 0 ? (
-                                        <div className="text-sm">
-                                          <span className="text-red-600">₹{request.fine_amount}</span>
-                                          <div className="text-xs text-gray-500">
-                                            {request.fine_paid ? "Paid" : "Pending"}
-                                          </div>
-                                        </div>
-                                      ) : (
-                                        <span className="text-sm text-gray-400">-</span>
-                                      )}
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                      <div className="flex justify-center items-center space-x-1">
-                                        {request.status === "COLLECTED" && (
-                                          <>
-                                            <Button 
-                                              size="sm"
-                                              variant="outline"
-                                              className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                                              onClick={() => {
-                                                const daysLeft = request.due_date ? Math.ceil((new Date(request.due_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null;
-                                                const isOverdue = daysLeft !== null && daysLeft < 0;
-                                                if (selectedRole === 'lab') {
-                                                  if (isOverdue) {
-                                                    toast({
-                                                      title: "Cannot renew overdue items",
-                                                      description: "This item is already overdue.",
-                                                      variant: "destructive",
-                                                    });
-                                                    return;
-                                                  }
-                                                  if (daysLeft !== null && daysLeft > 3) {
-                                                    toast({
-                                                      title: "Renewal not allowed yet",
-                                                      description: `Due date is already set to ${request.due_date ? new Date(request.due_date).toLocaleDateString() : '-'}`,
-                                                      variant: "default",
-                                                    });
-                                                    return;
-                                                  }
-                                                }
-                                                handleRenewRequest(request.id, request.due_date);
-                                              }}
-                                            >
-                                              <RefreshCw className="h-3 w-3 mr-1" />
-                                              Renew
-                                            </Button>
-                                            <Button
-                                              size="sm"
-                                              className="bg-zinc-900 hover:bg-zinc-800 text-white"
-                                              onClick={() => selectedRole === 'library' ? handleUpdateLibraryRequest(request.id, "RETURNED") : handleUpdateComponentRequest(request.id, "RETURNED")}
-                                            >
-                                              <CheckCircle className="h-3 w-3 mr-1" />
-                                              Mark as Returned
-                                            </Button>
-                                          </>
-                                        )}
-                                        {request.status === "USER_RETURNED" && (
-                                          <Button 
-                                            size="sm"
-                                            className="bg-green-600 hover:bg-green-700"
-                                            onClick={() => {
-                                              if (selectedRole === 'library') {
-                                                handleUpdateLibraryRequest(request.id, "RETURNED")
-                                              } else {
-                                                handleUpdateComponentRequest(request.id, "RETURNED")
-                                              }
-                                            }}
-                                          >
-                                            <CheckCircle className="h-3 w-3 mr-1" />
-                                            Confirm Return
-                                          </Button>
-                                        )}
-                                      </div>
-                                    </TableCell>
-                                  </TableRow>
-                                )
-                              })
-                            )}
+                            ))}
                           </TableBody>
                         </Table>
                       </CardContent>
                     </Card>
-                    {/* Pagination Controls for Active Loans */}
-                    <div className="flex justify-between items-center p-2 border-t bg-gray-50">
-                      <button
-                        className="px-3 py-1 rounded bg-gray-200 text-gray-700 disabled:opacity-50"
-                        onClick={() => setActiveLoansPage((p) => Math.max(1, p - 1))}
-                        disabled={activeLoansPage === 1}
-                      >
-                        Previous
-                      </button>
-                      <span className="text-xs text-gray-600">
-                        Page {activeLoansPage} of {activeLoansTotalPages}
-                      </span>
-                      <button
-                        className="px-3 py-1 rounded bg-gray-200 text-gray-700 disabled:opacity-50"
-                        onClick={() => setActiveLoansPage((p) => Math.min(activeLoansTotalPages, p + 1))}
-                        disabled={activeLoansPage === activeLoansTotalPages}
-                      >
-                        Next
-                      </button>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
+                  )
+                ) : (
+                  /* Loans/requests rendering for library and lab coordinators */
+                  (() => {
+                    let activeLoans = returnRequests;
+                    // --- Filtering Logic for Active Loans ---
+                    if (searchTerm.trim() !== "") {
+                      const lower = searchTerm.toLowerCase();
+                      activeLoans = activeLoans.filter(request => {
+                        const name = getRequesterName(request).toLowerCase();
+                        const srn = request.student?.student_id?.toLowerCase?.() || "";
+                        const item = getItemName(request).toLowerCase();
+                        return name.includes(lower) || srn.includes(lower) || item.includes(lower);
+                      });
+                    }
+                    if (activeFilter === "due") {
+                      activeLoans = activeLoans.filter(request => isOverdue(request.due_date));
+                    } else if (activeFilter === "not-due") {
+                      activeLoans = activeLoans.filter(request => !isOverdue(request.due_date));
+                    } else if (activeFilter === "student") {
+                      activeLoans = activeLoans.filter(request => request.student);
+                    } else if (activeFilter === "faculty") {
+                      activeLoans = activeLoans.filter(request => !request.student);
+                    }
+                    const filteredActiveLoans = activeLoans;
+                    const hasAnyLoans = returnRequests.length > 0;
+
+                    if (!hasAnyLoans) {
+                      return (
+                        <Card>
+                          <CardContent className="p-8 text-center">
+                            <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">No active {roleName.toLowerCase()} loans</h3>
+                            <p className="text-gray-600">All {roleName.toLowerCase()} items have been returned.</p>
+                          </CardContent>
+                        </Card>
+                      );
+                    }
+
+                    const activeLoansRowsPerPage = 8;
+                    const activeLoansTotalPages = Math.ceil(filteredActiveLoans.length / activeLoansRowsPerPage);
+                    const paginatedActiveLoans = filteredActiveLoans.slice((activeLoansPage - 1) * activeLoansRowsPerPage, activeLoansPage * activeLoansRowsPerPage);
+
+                    return (
+                      <div className="space-y-4">
+                        {/* Search and Filter Bar */}
+                        <div className="flex items-center space-x-4 mb-4">
+                          <div className="flex items-center space-x-2">
+                            <Search className="h-4 w-4 text-gray-500" />
+                            <Input
+                              placeholder="Search by name, SRN, or item..."
+                              value={searchTerm}
+                              onChange={(e) => setSearchTerm(e.target.value)}
+                              className="max-w-sm"
+                            />
+                          </div>
+                          
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm" className="flex items-center space-x-2">
+                                <Filter className="h-4 w-4" />
+                                <span>
+                                  {activeFilter === 'all' ? 'All' :
+                                   activeFilter === 'due' ? 'Due' :
+                                   activeFilter === 'not-due' ? 'Not Due' :
+                                   activeFilter === 'student' ? 'Student' :
+                                   'Faculty'}
+                                </span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {['all', 'due', 'not-due', 'student', 'faculty'].map((filter) => (
+                                <DropdownMenuItem
+                                  key={filter}
+                                  onClick={() => setActiveFilter(filter)}
+                                  className={activeFilter === filter ? 'bg-gray-100' : ''}
+                                >
+                                  {filter === 'all' ? 'All' :
+                                   filter === 'due' ? 'Due' :
+                                   filter === 'not-due' ? 'Not Due' :
+                                   filter === 'student' ? 'Student' :
+                                   'Faculty'}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+
+                        <Card>
+                          <CardContent className="p-0">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="text-left text-black font-bold">Borrower</TableHead>
+                                  <TableHead className="text-left text-black font-bold">{roleName} Item</TableHead>
+                                  <TableHead className="text-center text-black font-bold">Qty</TableHead>
+                                  <TableHead className="text-center text-black font-bold">Status</TableHead>
+                                  <TableHead className="text-center text-black font-bold">Collected</TableHead>
+                                  <TableHead className="text-center text-black font-bold">Due Date</TableHead>
+                                  <TableHead className="text-center text-black font-bold">Fine</TableHead>
+                                  <TableHead className="text-center text-black font-bold">Actions</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {paginatedActiveLoans.length === 0 ? (
+                                  <TableRow>
+                                    <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                                      No results found for the current search/filter.
+                                    </TableCell>
+                                  </TableRow>
+                                ) : (
+                                  paginatedActiveLoans.map((request) => {
+                                    const overdue = isOverdue(request.due_date)
+                                    const daysOverdue = getDaysOverdue(request.due_date)
+                                    const borrower = request.student?.user?.name || request.faculty?.user?.name || "Unknown"
+                                    const borrowerId = request.student?.student_id || "Faculty"
+                                    return (
+                                      <TableRow key={request.id} className="hover:bg-gray-50">
+                                        <TableCell className="font-medium text-sm text-left">
+                                          <div>
+                                            <div className="font-medium text-sm">{borrower}</div>
+                                            <div className="text-xs text-gray-500">
+                                              {request.student ? `SRN: ${borrowerId}` : 'Faculty'}
+                                            </div>
+                                          </div>
+                                        </TableCell>
+                                        <TableCell className="font-medium text-sm text-left">{getItemName(request)}</TableCell>
+                                        <TableCell className="text-sm font-medium text-center">{request.quantity}</TableCell>
+                                        <TableCell className="text-center">
+                                          {overdue ? (
+                                            <Badge className="bg-red-100 text-red-800 font-medium">
+                                              Due
+                                            </Badge>
+                                          ) : (
+                                            <Badge className="bg-yellow-100 text-yellow-800 font-medium">
+                                              Not Due
+                                            </Badge>
+                                          )}
+                                        </TableCell>
+                                        <TableCell className="text-sm text-center">
+                                          <span className="text-sm">
+                                            {request.collection_date ? new Date(request.collection_date).toLocaleDateString() : "-"}
+                                          </span>
+                                        </TableCell>
+                                        <TableCell className="text-sm text-center">
+                                          <span className={`text-sm ${overdue ? 'text-red-600 font-medium' : ''}`}>
+                                            {request.due_date ? new Date(request.due_date).toLocaleDateString() : "-"}
+                                          </span>
+                                          {overdue && (
+                                            <div className="text-xs text-red-600">
+                                              {daysOverdue} days late
+                                            </div>
+                                          )}
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                          {request.fine_amount && request.fine_amount > 0 ? (
+                                            <div className="text-sm">
+                                              <span className="text-red-600">₹{request.fine_amount}</span>
+                                              <div className="text-xs text-gray-500">
+                                                {request.fine_paid ? "Paid" : "Pending"}
+                                              </div>
+                                            </div>
+                                          ) : (
+                                            <span className="text-sm text-gray-400">-</span>
+                                          )}
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                          <div className="flex justify-center items-center space-x-1">
+                                            {request.status === "COLLECTED" && (
+                                              <>
+                                                <Button 
+                                                  size="sm"
+                                                  variant="outline"
+                                                  className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                                                  onClick={() => {
+                                                    const daysLeft = request.due_date ? Math.ceil((new Date(request.due_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null;
+                                                    const isOverdue = daysLeft !== null && daysLeft < 0;
+                                                    if (selectedRole === 'lab') {
+                                                      if (isOverdue) {
+                                                        toast({
+                                                          title: "Cannot renew overdue items",
+                                                          description: "This item is already overdue.",
+                                                          variant: "destructive",
+                                                        });
+                                                        return;
+                                                      }
+                                                      if (daysLeft !== null && daysLeft > 3) {
+                                                        toast({
+                                                          title: "Renewal not allowed yet",
+                                                          description: `Due date is already set to ${request.due_date ? new Date(request.due_date).toLocaleDateString() : '-'}`,
+                                                          variant: "default",
+                                                        });
+                                                        return;
+                                                      }
+                                                    }
+                                                    handleRenewRequest(request.id, request.due_date);
+                                                  }}
+                                                >
+                                                  <RefreshCw className="h-3 w-3 mr-1" />
+                                                  Renew
+                                                </Button>
+                                                <Button
+                                                  size="sm"
+                                                  className="bg-zinc-900 hover:bg-zinc-800 text-white"
+                                                  onClick={() => selectedRole === 'library' ? handleUpdateLibraryRequest(request.id, "RETURNED") : handleUpdateComponentRequest(request.id, "RETURNED")}
+                                                >
+                                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                                  Mark as Returned
+                                                </Button>
+                                              </>
+                                            )}
+                                            {request.status === "USER_RETURNED" && (
+                                              <Button 
+                                                size="sm"
+                                                className="bg-green-600 hover:bg-green-700"
+                                                onClick={() => {
+                                                  if (selectedRole === 'library') {
+                                                    handleUpdateLibraryRequest(request.id, "RETURNED")
+                                                  } else {
+                                                    handleUpdateComponentRequest(request.id, "RETURNED")
+                                                  }
+                                                }}
+                                              >
+                                                <CheckCircle className="h-3 w-3 mr-1" />
+                                                Confirm Return
+                                              </Button>
+                                            )}
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>
+                                    )
+                                  })
+                                )}
+                              </TableBody>
+                            </Table>
+                          </CardContent>
+                        </Card>
+                        {/* Pagination Controls for Active Loans */}
+                        <div className="flex justify-between items-center p-2 border-t bg-gray-50">
+                          <button
+                            className="px-3 py-1 rounded bg-gray-200 text-gray-700 disabled:opacity-50"
+                            onClick={() => setActiveLoansPage((p) => Math.max(1, p - 1))}
+                            disabled={activeLoansPage === 1}
+                          >
+                            Previous
+                          </button>
+                          <span className="text-xs text-gray-600">
+                            Page {activeLoansPage} of {activeLoansTotalPages}
+                          </span>
+                          <button
+                            className="px-3 py-1 rounded bg-gray-200 text-gray-700 disabled:opacity-50"
+                            onClick={() => setActiveLoansPage((p) => Math.min(activeLoansTotalPages, p + 1))}
+                            disabled={activeLoansPage === activeLoansTotalPages}
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()
+                )}
+              </CardContent>
+            </Card>
           )}
 
           {activeTab === 'history' && selectedRole && (
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold">{roleName} Request History</h2>
-              <div className="flex items-center space-x-4 mb-4">
-                <div className="flex items-center space-x-2">
-                  <Search className="h-4 w-4 text-gray-500" />
-                  <Input
-                    placeholder="Search by borrower, item, or SRN..."
-                    value={historySearchTerm}
-                    onChange={(e) => setHistorySearchTerm(e.target.value)}
-                    className="max-w-sm"
-                  />
+            <Card>
+              <CardHeader>
+                <CardTitle>{roleName} Request History</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center space-x-4 mb-4">
+                  <div className="flex items-center space-x-2">
+                    <Search className="h-4 w-4 text-gray-500" />
+                    <Input
+                      placeholder="Search by borrower, item, or SRN..."
+                      value={historySearchTerm}
+                      onChange={(e) => setHistorySearchTerm(e.target.value)}
+                      className="max-w-sm"
+                    />
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="flex items-center space-x-2">
+                        <Filter className="h-4 w-4" />
+                        <span>
+                          {historyFilter === 'all' ? 'All' :
+                            historyFilter === 'due' ? 'Due' :
+                            historyFilter === 'not-due' ? 'Not Due' :
+                            historyFilter === 'student' ? 'Student' :
+                            'Faculty'}
+                        </span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {['all', 'due', 'not-due', 'student', 'faculty'].map((filter) => (
+                        <DropdownMenuItem
+                          key={filter}
+                          onClick={() => setHistoryFilter(filter)}
+                          className={historyFilter === filter ? 'bg-gray-100' : ''}
+                        >
+                          {filter === 'all' ? 'All' :
+                            filter === 'due' ? 'Due' :
+                            filter === 'not-due' ? 'Not Due' :
+                            filter === 'student' ? 'Student' :
+                            'Faculty'}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="flex items-center space-x-2">
-                      <Filter className="h-4 w-4" />
-                      <span>
-                        {historyFilter === 'all' ? 'All' :
-                          historyFilter === 'due' ? 'Due' :
-                          historyFilter === 'not-due' ? 'Not Due' :
-                          historyFilter === 'student' ? 'Student' :
-                          'Faculty'}
-                      </span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {['all', 'due', 'not-due', 'student', 'faculty'].map((filter) => (
-                      <DropdownMenuItem
-                        key={filter}
-                        onClick={() => setHistoryFilter(filter)}
-                        className={historyFilter === filter ? 'bg-gray-100' : ''}
-                      >
-                        {filter === 'all' ? 'All' :
-                          filter === 'due' ? 'Due' :
-                          filter === 'not-due' ? 'Not Due' :
-                          filter === 'student' ? 'Student' :
-                          'Faculty'}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              <HistoryTable data={historyRequests} roleName={roleName} searchTerm={historySearchTerm} filter={historyFilter} isOverdue={isOverdue} />
-            </div>
+                <HistoryTable data={historyRequests} roleName={roleName} searchTerm={historySearchTerm} filter={historyFilter} isOverdue={isOverdue} />
+              </CardContent>
+            </Card>
+          )}
+          {selectedRole === 'platformManager' && (
+            <PlatformManagerFeedbacks />
+          )}
+          {selectedRole === 'developer' && (
+            <DeveloperFeedbacks />
           )}
         </>
       )}

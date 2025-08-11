@@ -30,14 +30,14 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Faculty profile not found" }, { status: 404 })
     }
 
-    // Check if faculty is coordinator for Lab Components domain
-    const isLabComponentsCoordinator = faculty.domain_assignments.some(
-      assignment => assignment.domain.name === "Lab Components"
+    // Check if faculty is coordinator for Projects domain
+    const isProjectsCoordinator = faculty.domain_assignments.some(
+      assignment => assignment.domain.name === "Projects"
     )
 
-    if (!isLabComponentsCoordinator) {
+    if (!isProjectsCoordinator) {
       return NextResponse.json({ 
-        error: "Access denied - Only Lab Components coordinators can approve projects" 
+        error: "Access denied - Only Projects coordinators can approve projects" 
       }, { status: 403 })
     }
 
@@ -50,9 +50,9 @@ export async function PUT(request: NextRequest) {
       }, { status: 400 })
     }
 
-    if (!["ONGOING", "REJECTED"].includes(status)) {
+    if (!["APPROVED", "REJECTED"].includes(status)) {
       return NextResponse.json({ 
-        error: "Invalid status. Must be ONGOING or REJECTED" 
+        error: "Invalid status. Must be APPROVED or REJECTED" 
       }, { status: 400 })
     }
 
@@ -60,7 +60,7 @@ export async function PUT(request: NextRequest) {
     const updatedProject = await prisma.project.update({
       where: { id: project_id },
       data: {
-        status: status as "ONGOING" | "REJECTED",
+        status: status === "APPROVED" ? "APPROVED" : "REJECTED",
         modified_by: userId,
         modified_date: new Date(),
         // You could add a notes field to the project model if needed
@@ -131,14 +131,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Faculty profile not found" }, { status: 404 })
     }
 
-    // Check if faculty is coordinator for Lab Components domain
-    const isLabComponentsCoordinator = faculty.domain_assignments.some(
-      assignment => assignment.domain.name === "Lab Components"
+    // Check if faculty is coordinator for Projects domain
+    const isProjectsCoordinator = faculty.domain_assignments.some(
+      assignment => assignment.domain.name === "Projects"
     )
 
-    if (!isLabComponentsCoordinator) {
+    if (!isProjectsCoordinator) {
       return NextResponse.json({ 
-        error: "Access denied - Only Lab Components coordinators can view pending projects" 
+        error: "Access denied - Only Projects coordinators can view pending projects" 
       }, { status: 403 })
     }
 

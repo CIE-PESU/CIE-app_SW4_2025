@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2 } from "lucide-react"
+import { LoginSideCard } from "./login-sidecard";
 
 // Inline Icons implementation
 const Icons = {
@@ -43,84 +44,78 @@ export function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row bg-gray-100">
-      {/* Left side with form */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="w-full max-w-lg space-y-10">
-          <div className="flex flex-col items-center">
-            <Icons.logo className="h-16 w-auto mb-6" />
-            <h1 className="text-3xl font-bold tracking-tight">Welcome back</h1>
-            <p className="text-base text-muted-foreground mt-3">
-              Enter your email to sign in to your account
-            </p>
-          </div>
-          
-          <Card className="bg-gray-50 shadow-lg p-2">
-            <CardContent className="pt-6">
-              <form onSubmit={onSubmit} className="space-y-6">
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
+      {/* Animated background video full screen */}
+      <video
+        src="/login_background_animation.mp4"
+        className="absolute inset-0 w-full h-full object-cover z-0"
+        autoPlay
+        loop
+        muted
+        playsInline
+        style={{ pointerEvents: 'none', userSelect: 'none', opacity: 1 }}
+      />
+        {/* Split card layout */}
+        <div className="w-full max-w-4xl z-10 flex flex-row rounded-2xl shadow-lg overflow-hidden bg-white">
+        {/* Login form card */}
+        <div className="basis-1/2 flex flex-col items-center justify-center p-0 bg-white">
+          <Card className="bg-gray-50 shadow-none p-0 rounded-2xl w-full">
+            <CardContent className="p-8 flex flex-col items-center">
+              <Icons.logo className="h-28 w-auto" />
+              <h1 className="text-3xl tracking-tight mb-2 mt-0" style={{ fontFamily: 'Gotham, Helvetica, Arial, sans-serif', fontWeight: 'normal' }}>Welcome back</h1>
+              <p className="text-base text-muted-foreground mb-6">
+                Enter your email to sign in to your account
+              </p>
+              <form onSubmit={onSubmit} className="space-y-6 w-full max-w-md">
                 {error && (
                   <Alert variant="destructive">
                     <AlertDescription>{error}</AlertDescription>
                   </Alert>
                 )}
-                
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      placeholder="name@example.com"
-                      type="email"
-                      autoCapitalize="none"
-                      autoComplete="email"
-                      autoCorrect="off"
-                      disabled={isLoading}
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="password">Password</Label>
-
-                    </div>
-                    <Input
-                      id="password"
-                      placeholder="••••••••"
-                      type="password"
-                      autoComplete="current-password"
-                      disabled={isLoading}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                    />
-                  </div>
-                  
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? (
-                      <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
-                    ) : null}
-                    Sign In
-                  </Button>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    placeholder="name@example.com"
+                    type="email"
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    autoCorrect="off"
+                    disabled={isLoading}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
                 </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Password</Label>
+                  </div>
+                  <Input
+                    id="password"
+                    placeholder="••••••••"
+                    type="password"
+                    autoComplete="current-password"
+                    disabled={isLoading}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? (
+                    <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
+                  ) : null}
+                  Sign In
+                </Button>
               </form>
             </CardContent>
           </Card>
-          
-
         </div>
-      </div>
-      
-      {/* Right side with image */}
-      <div className="hidden lg:block relative w-1/2">
-        <div 
-          className="absolute inset-0 bg-cover bg-center"
-          style={{
-            backgroundImage: 'url(/login-bg.png)',
-          }}
-        />
+        {/* Side illustration card */}
+        <div className="hidden md:flex flex-col items-center justify-center basis-1/2">
+          <LoginSideCard />
+        </div>
       </div>
     </div>
   )

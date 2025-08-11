@@ -42,15 +42,27 @@ export async function GET(request: Request) {
           { created_by: userId },
           // Projects for enrolled courses
           { course_id: { in: courseIds } },
-          // All approved or ongoing faculty-assigned projects
+          // All approved/ongoing faculty-assigned projects with open enrollment
           {
             type: "FACULTY_ASSIGNED",
-            status: { in: [$Enums.ProjectStatus.APPROVED, $Enums.ProjectStatus.ONGOING].filter(s => s !== undefined && s !== null) }
+            status: { in: ["APPROVED", "ONGOING"] },
+            enrollment_status: "OPEN"
           },
-          // All approved student-proposed projects (with accepted_by)
+          // All approved/ongoing faculty-assigned projects where student has an accepted request
+          {
+            type: "FACULTY_ASSIGNED", 
+            status: { in: ["APPROVED", "ONGOING"] },
+            project_requests: {
+              some: {
+                student_id: student.id,
+                status: "APPROVED"
+              }
+            }
+          },
+          // All ongoing student-proposed projects (with accepted_by)
           {
             type: "STUDENT_PROPOSED",
-            status: $Enums.ProjectStatus.APPROVED,
+            status: "ONGOING",
             accepted_by: { not: null }
           }
         ],
@@ -62,6 +74,7 @@ export async function GET(request: Request) {
           take: 1,
         },
         project_requests: {
+          where: { student_id: student.id },
           include: {
             faculty: {
               include: {

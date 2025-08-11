@@ -33,13 +33,21 @@ export async function GET(request: NextRequest) {
     // Get basic statistics
     const [
       activeProjectsCount,
-      attendanceRecords
+      attendanceRecords,
+      totalCoursesCount,
+      totalLabComponentsCount,
+      totalLibraryItemsCount,
+      totalOpportunitiesCount
     ] = await Promise.all([
       prisma.projectRequest.count({ where: { student_id: user.student.id, status: { in: ['PENDING', 'APPROVED'] } } }),
       prisma.studentAttendance.findMany({ 
         where: { student_id: user.student.id },
         select: { status: true }
-      })
+      }),
+      prisma.course.count(),
+      prisma.labComponent.count(),
+      prisma.libraryItem.count(),
+      prisma.opportunity.count()
     ])
 
     // Calculate attendance rate only if records exist
@@ -52,7 +60,10 @@ export async function GET(request: NextRequest) {
     const stats = {
       activeProjects: activeProjectsCount,
       attendanceRate: attendanceRate,
-      borrowedItems: 0
+      courses: totalCoursesCount,
+      labComponents: totalLabComponentsCount,
+      libraryBooks: totalLibraryItemsCount,
+      opportunities: totalOpportunitiesCount
     }
 
     const alerts = [

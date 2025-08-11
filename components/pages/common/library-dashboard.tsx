@@ -36,7 +36,7 @@ export function getOverdueDays(dueDate: string): number {
 
 export function getTimeUntilExpiry(requestDate: string): { expired: boolean, timeLeft: string, minutesLeft: number } {
   const reservationTime = new Date(requestDate)
-  const expiryTime = new Date(reservationTime.getTime() + 120 * 1000) // Add 2 hours
+  const expiryTime = new Date(reservationTime.getTime() + 2 * 60 * 60 * 1000) // Add 2 hours
   const now = new Date()
   const timeLeft = expiryTime.getTime() - now.getTime()
   
@@ -363,7 +363,7 @@ export function LibraryDashboard() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {reservedItems.map((request) => {
                   const expiryInfo = getTimeUntilExpiry(request.request_date)
                   const isUrgent = expiryInfo.minutesLeft <= 30 && !expiryInfo.expired
@@ -401,7 +401,7 @@ export function LibraryDashboard() {
                       
                       {/* Image Display */}
                       {request.item?.image_url && (
-                        <div className="relative w-full aspect-[3/4] mb-2 px-8 pt-2 p-3 bg-white border border-gray-200 shadow-sm rounded-lg flex items-center justify-center">
+                        <div className="relative w-full h-48 mb-2 px-8 pt-2 p-3 bg-white border border-gray-200 shadow-sm rounded-lg flex items-center justify-center">
                           <div className="w-full h-full">
                             <img
                               src={request.item.image_url || '/placeholder.jpg'}
@@ -497,7 +497,7 @@ export function LibraryDashboard() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {activeLoans.map((request) => {
                   const overdue = request.due_date && isOverdue(request.due_date)
                   const daysOverdue = request.due_date ? getOverdueDays(request.due_date) : 0
@@ -527,7 +527,7 @@ export function LibraryDashboard() {
                       
                       {/* Image Display */}
                       {request.item?.image_url && (
-                        <div className="relative w-full aspect-[3/4] mb-2 px-8 pt-2 p-3 bg-white border border-gray-200 shadow-sm rounded-lg flex items-center justify-center">
+                        <div className="relative w-full h-48 mb-2 px-8 pt-2 p-3 bg-white border border-gray-200 shadow-sm rounded-lg flex items-center justify-center">
                           <div className="w-full h-full">
                             <img
                               src={request.item.image_url || '/placeholder.jpg'}
@@ -586,7 +586,7 @@ export function LibraryDashboard() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {overdueItems.map((request) => {
                   const daysOverdue = request.due_date ? getOverdueDays(request.due_date) : 0
                   const fineAmount = daysOverdue * 5 // ₹5 per day
@@ -612,7 +612,7 @@ export function LibraryDashboard() {
                       
                       {/* Image Display */}
                       {request.item?.image_url && (
-                        <div className="relative w-full aspect-[3/4] mb-2 px-8 pt-2 p-3 bg-white border border-gray-200 shadow-sm rounded-lg flex items-center justify-center">
+                        <div className="relative w-full h-48 mb-2 px-8 pt-2 p-3 bg-white border border-gray-200 shadow-sm rounded-lg flex items-center justify-center">
                           <div className="w-full h-full">
                             <img
                               src={request.item.image_url || '/placeholder.jpg'}
@@ -661,7 +661,7 @@ export function LibraryDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <BookOpen className="h-5 w-5" />
-                  <span>Library Items</span>
+                  <span>Books</span>
                 </CardTitle>
                 <CardDescription>
                  Do collect within 2 hours of reserving the book.
@@ -670,12 +670,12 @@ export function LibraryDashboard() {
               <CardContent>
                 <div className="space-y-4">
                   <div className="flex flex-wrap gap-2 items-center mb-4 pb-1">
-                    <div className="relative w-56">
+                    <div className="relative w-full md:w-1/2 lg:w-1/3">
                       <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400">
                         <Search className="h-4 w-4" />
                       </span>
                       <Input
-                        placeholder="Search items..."
+                        placeholder="Search Books..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="pl-8 pr-2 h-9 w-full text-sm"
@@ -697,7 +697,7 @@ export function LibraryDashboard() {
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {filteredItems.length === 0 ? (
                       <div className="col-span-full text-center py-8">
                         <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -740,7 +740,7 @@ export function LibraryDashboard() {
                             </CardHeader>
                             {/* Image Display */}
                             {(item.image_url || item.back_image_url) && (
-                              <div className="relative w-full h-32 mb-2 px-3 bg-white border border-gray-200 shadow-sm rounded-lg flex items-center justify-center">
+                              <div className="relative w-full h-48 mb-2 px-3 bg-white border border-gray-200 shadow-sm rounded-lg flex items-center justify-center">
                                 {/* Front Image */}
                                 <div className={`absolute inset-0 w-full h-full transition-opacity duration-300 ease-in-out ${imageStates[item.id] ? 'opacity-0' : 'opacity-100'}`}>
                                   <img
@@ -862,7 +862,7 @@ export function LibraryDashboard() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Library</h1>
-          <p className="text-gray-600 mt-1">Reserve and manage your library items</p>
+          <p className="text-gray-600 mt-1">Reserve and manage your books</p>
         </div>
         <Button onClick={fetchData} variant="outline">
           <RefreshCw className="h-4 w-4 mr-2" />
