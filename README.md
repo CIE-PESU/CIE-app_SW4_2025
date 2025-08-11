@@ -248,10 +248,4 @@ Demo users are automatically created when you run the seed script. Check the `pr
 - AI features require a valid Google Gemini API key
 - Live code editing is available in development mode
 
-## 📝 License
 
-This project is open source and available under the [MIT License](LICENSE).
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
