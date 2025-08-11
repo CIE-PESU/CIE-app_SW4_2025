@@ -1,4 +1,4 @@
-# CIE - College Information Exchange
+# CIE_SW4
 
 A comprehensive laboratory management system built with Next.js, Prisma, and PostgreSQL.
 
