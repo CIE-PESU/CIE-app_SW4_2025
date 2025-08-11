@@ -158,6 +158,13 @@ async function main() {
     }
   });
 
+  const projectManager = await prisma.domain.create({
+    data: {
+      name: 'Project Manager',
+      description: 'Domain for managing project coordination and oversight',
+    }
+  });
+
   // Assign domain coordinators
   await prisma.domainCoordinator.create({
     data: {
@@ -172,6 +179,15 @@ async function main() {
     data: {
       domain_id: libraryDomain.id,
       faculty_id: createdUsers['sathya.prasad@pes.edu'].faculty?.id,
+      assigned_by: createdUsers['cie.admin@pes.edu'].id,
+      assigned_at: new Date(),
+    }
+  });
+
+  await prisma.domainCoordinator.create({
+    data: {
+      domain_id: projectManager.id,
+      faculty_id: createdUsers['tarunrama@pes.edu'].faculty?.id,
       assigned_by: createdUsers['cie.admin@pes.edu'].id,
       assigned_at: new Date(),
     }
@@ -639,8 +655,8 @@ async function main() {
   // Summary
   console.log('\n🎉 Seed completed successfully!');
   console.log('\n📊 Summary of created data:');
-  console.log(`   - Domains: 4 (Lab Components, Library, Platform Manager, Developer)`);
-  console.log(`   - Domain Coordinators: 2`);
+  console.log(`   - Domains: 5 (Lab Components, Library, Platform Manager, Developer, Project Manager)`);
+  console.log(`   - Domain Coordinators: 3`);
   console.log(`   - Courses: 2`);
   console.log(`   - Course Units: 2`);
   console.log(`   - Lab Components: 5 (all assigned to Lab Components domain)`);
@@ -655,6 +671,7 @@ async function main() {
   console.log('\n👨‍💼 Coordinator Assignments:');
   console.log(`   - Madhukar N: Lab Components Domain (${labDomain.name})`);
   console.log(`   - Sathya Prasad: Library Domain (${libraryDomain.name})`);
+  console.log(`   - Tarun R: Project Manager Domain (${projectManager.name})`);
 }
 
 main()

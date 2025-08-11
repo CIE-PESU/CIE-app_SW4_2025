@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/components/auth-provider"
-import { BookOpen, FolderOpen, ClipboardCheck, Clock, Calendar, MapPin } from "lucide-react"
+import { BookOpen, FolderOpen, ClipboardCheck, Clock, Calendar, MapPin, Wrench, Briefcase } from "lucide-react"
 import { useRef, useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import { TodoList } from '@/components/ui/todo-list'
@@ -47,9 +47,9 @@ export function StudentHome({ onPageChange }: StudentHomeProps) {
 
   const stats = dashboardData ? [
     {
-      title: "Current GPA",
-      value: (dashboardData.stats.currentGPA || "N/A").toString(),
-      description: "This semester",
+      title: "Projects",
+      value: (dashboardData.stats.activeProjects || 0).toString(),
+      description: "Enrolled projects",
       icon: FolderOpen,
       color: "text-green-600",
     },
@@ -61,25 +61,32 @@ export function StudentHome({ onPageChange }: StudentHomeProps) {
       color: "text-purple-600",
     },
     {
-      title: "Borrowed Items",
-      value: (dashboardData.stats.borrowedItems || 0).toString(),
-      description: "Currently borrowed",
-      icon: Clock,
+      title: "Courses",
+      value: (dashboardData.stats.courses || 0).toString(),
+      description: "Available courses",
+      icon: BookOpen,
+      color: "text-blue-600",
+    },
+    {
+      title: "Lab Components",
+      value: (dashboardData.stats.labComponents || 0).toString(),
+      description: "Available components",
+      icon: Wrench,
       color: "text-orange-600",
     },
     {
-      title: "Degree Progress",
-      value: `${dashboardData.stats.degreeProgress || 0}%`,
-      description: "Completion",
-      icon: Calendar,
-      color: "text-pink-600",
+      title: "Library Books",
+      value: (dashboardData.stats.libraryBooks || 0).toString(),
+      description: "Available books",
+      icon: BookOpen,
+      color: "text-indigo-600",
     },
     {
-      title: "Projects",
-      value: (dashboardData.stats.activeProjects || 0).toString(),
-      description: "In progress",
-      icon: ClipboardCheck,
-      color: "text-yellow-600",
+      title: "Opportunities",
+      value: (dashboardData.stats.opportunities || 0).toString(),
+      description: "Available opportunities",
+      icon: Briefcase,
+      color: "text-pink-600",
     },
   ] : []
 
@@ -132,12 +139,43 @@ export function StudentHome({ onPageChange }: StudentHomeProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
+      {/* Stats Section - 6 Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+        {loading ? (
+          Array.from({ length: 6 }).map((_, index) => (
+            <Card key={index} className="hover:shadow-lg transition-shadow animate-pulse" style={theme === 'light' ? { background: '#e3f0ff' } : {}}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div className="h-4 bg-gray-200 rounded w-20"></div>
+                <div className="h-4 w-4 bg-gray-200 rounded"></div>
+              </CardHeader>
+              <CardContent>
+                <div className="h-8 bg-gray-200 rounded w-16 mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded w-24"></div>
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          stats.map((stat, index) => (
+            <Card key={index} className="hover:shadow-lg transition-shadow transform hover:scale-105 focus:scale-105 transition-transform duration-200" style={theme === 'light' ? { background: '#e3f0ff' } : {}}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+                <stat.icon className={`h-4 w-4 ${stat.color}`} />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stat.value}</div>
+                <p className="text-xs text-muted-foreground">{stat.description}</p>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="lg:col-span-1 h-full">
           <TodoList role="student" />
         </div>
-        <div>
-          <Card>
+        <div className="lg:col-span-1 h-full">
+          <Card className="h-full">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Calendar className="h-5 w-5" />
