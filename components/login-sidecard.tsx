@@ -22,7 +22,7 @@ const illustrations = [
 
 export function LoginSideCard() {
   const plugin = React.useRef(
-    Autoplay({ delay: 2000, stopOnInteraction: false })
+    Autoplay({ delay: 1000, stopOnInteraction: false })
   )
 
   return (
