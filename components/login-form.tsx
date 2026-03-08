@@ -56,14 +56,14 @@ export function LoginForm() {
         style={{ pointerEvents: 'none', userSelect: 'none', opacity: 1 }}
       />
         {/* Split card layout */}
-        <div className="w-full max-w-4xl z-10 flex flex-row rounded-2xl shadow-lg overflow-hidden bg-white">
+        <div className="w-full h-fit max-w-4xl z-10 flex flex-row justify-between rounded-2xl shadow-lg overflow-hidden">
         {/* Login form card */}
-        <div className="basis-1/2 flex flex-col items-center justify-center p-0 bg-white">
-          <Card className="bg-gray-50 shadow-none p-0 rounded-2xl w-full">
+        <div className="basis-1/2 rounded-2xl flex flex-col items-center justify-center p-0 bg-gradient-to-b from-[rgba(0,0,0,0.25)] to-transparent backdrop-blur-2xl">
+          <Card className="bg-[#f9fafb00] shadow-none p-0 rounded-2xl w-full backdrop-blur-2xl ">
             <CardContent className="p-8 flex flex-col items-center">
               <Icons.logo className="h-28 w-auto" />
-              <h1 className="text-3xl tracking-tight mb-2 mt-0" style={{ fontFamily: 'Gotham, Helvetica, Arial, sans-serif', fontWeight: 'normal' }}>Welcome back</h1>
-              <p className="text-base text-muted-foreground mb-6">
+              <h1 className="text-3xl text-slate-400 tracking-tight mb-2 mt-0" style={{ fontFamily: 'Gotham, Helvetica, Arial, sans-serif', fontWeight: 'normal' }}>Welcome back</h1>
+              <p className="text-base text-slate-500 text-muted-foreground mb-6">
                 Enter your email to sign in to your account
               </p>
               <form onSubmit={onSubmit} className="space-y-6 w-full max-w-md">
@@ -73,8 +73,8 @@ export function LoginForm() {
                   </Alert>
                 )}
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
+                  <Label className="text-slate-500" htmlFor="email" >Email</Label>
+                  <Input className=''
                     id="email"
                     placeholder="name@example.com"
                     type="email"
@@ -89,7 +89,7 @@ export function LoginForm() {
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="password">Password</Label>
+                    <Label className="text-slate-500" htmlFor="password">Password</Label>
                   </div>
                   <Input
                     id="password"
@@ -102,7 +102,7 @@ export function LoginForm() {
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button type="submit" className="w-full hover:bg-slate-400" disabled={isLoading}>
                   {isLoading ? (
                     <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
                   ) : null}
@@ -113,7 +113,7 @@ export function LoginForm() {
           </Card>
         </div>
         {/* Side illustration card */}
-        <div className="hidden md:flex flex-col items-center justify-center basis-1/2">
+        <div className="hidden md:flex flex-col items-center justify-center ">
           <LoginSideCard />
         </div>
       </div>
