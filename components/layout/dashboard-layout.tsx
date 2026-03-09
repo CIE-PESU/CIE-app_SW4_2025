@@ -258,7 +258,7 @@ export function DashboardLayout({ children, currentPage, onPageChange, menuItems
       {/* Sidebar */}
       <div
         className={cn(
-          "fixed inset-y-0 left-0 z-40 transform transition-all duration-500 ease-in-out lg:translate-x-0 rounded-r-2xl overflow-hidden shadow-2xl",
+          "fixed top-[55px] bottom-0 left-0 z-40 transform transition-all duration-500 ease-in-out lg:translate-x-0 rounded-tr-2xl overflow-hidden shadow-2xl",
           sidebarWidth,
           sidebarOpen ? "translate-x-0" : "-translate-x-full",
           "bg-[#e3f0ff] dark:bg-sidebar text-sidebar-foreground"
@@ -268,24 +268,6 @@ export function DashboardLayout({ children, currentPage, onPageChange, menuItems
         }}
       >
         <div className="flex flex-col h-full">
-          {/* Header with gradient */}
-          <div className="flex items-center justify-center h-20 px-4 border-b border-indigo-200 bg-white/90">
-            <div className="relative w-full h-full flex items-center justify-center p-2">
-              {sidebarCollapsed ? (
-                <img 
-                  src="/logo-collapse.png" 
-                  alt="Logo Collapsed" 
-                  className="object-contain h-12 w-12 transition-all duration-300 hover:scale-110"
-                />
-              ) : (
-                <img 
-                  src="/logo.png" 
-                  alt="Logo" 
-                  className="object-contain max-h-full w-48 transition-all duration-300 hover:scale-105"
-                />
-              )}
-            </div>
-          </div>
 
           {/* Navigation with animated items */}
           <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">

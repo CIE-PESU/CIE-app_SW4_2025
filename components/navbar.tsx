@@ -36,16 +36,30 @@ export function Navbar({ sidebarOpen, setSidebarOpen, sidebarCollapsed, onPageCh
   return (
     <div
       className={cn(
-        "fixed top-0 right-0 left-0 h-20 bg-[#e3f0ff] dark:bg-dark4 border-b border-gray-200 dark:border-dark3 z-30 transition-all duration-300",
-        sidebarCollapsed ? "lg:left-16" : "lg:left-64",
+        "fixed top-0 w-full left-0 right-0 h-[55px] bg-gradient-to-r from-[rgba(255,255,255,0.6)] via-[rgba(219,234,254,0.6)] to-[rgba(191,219,254,0.6)] dark:bg-dark4 border-b border-gray-200 dark:border-dark3 z-50 transition-all duration-300 backdrop-blur-lg",
       )}
     >
-      <div className="flex items-center justify-between h-full px-4">
-        {/* Mobile menu button */}
-        <div className="lg:hidden">
-          <Button variant="outline" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)}>
-            <Menu className="h-4 w-4" />
-          </Button>
+      <div className="flex items-center justify-between h-full pl-1 pr-4">
+        {/* Left side: Logo & Mobile menu button */}
+        <div className="flex items-center space-x-2 h-full">
+          <div className="lg:hidden">
+            <Button variant="outline" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)} className="ml-1">
+              <Menu className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          {/* Logo */}
+          <div 
+            className="cursor-pointer flex items-center h-full p-2" 
+            onClick={() => onPageChange('home')}
+            title="Go to Dashboard"
+          >
+            <img 
+              src="/logo.png" 
+              alt="CIE Logo" 
+              className="h-full w-auto object-contain"
+            />
+          </div>
         </div>
 
         <div className="flex items-center gap-2 justify-end flex-1">
