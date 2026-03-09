@@ -44,8 +44,13 @@ export function Navbar({ sidebarOpen, setSidebarOpen, sidebarCollapsed, onPageCh
         {/* Left side: Logo & Mobile menu button */}
         <div className="flex items-center space-x-2 h-full">
           <div className="lg:hidden">
-            <Button variant="outline" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)} className="ml-1">
-              <Menu className="h-4 w-4" />
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => setSidebarOpen(!sidebarOpen)} 
+              className="h-8 w-8 ml-1 text-slate-700 dark:text-slate-400 hover:bg-transparent hover:text-blue-400 dark:hover:text-white transition-colors duration-200"
+            >
+              <Menu/>
             </Button>
           </div>
 
