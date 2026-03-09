@@ -37,7 +37,7 @@ export function Navbar({ sidebarOpen, setSidebarOpen, sidebarCollapsed, onPageCh
     <div
       className="fixed top-0 left-0 right-0 w-full h-[55px] backdrop-blur-lg 
       bg-gradient-to-r from-[rgba(255,255,255,0.6)] via-[rgba(181,210,248,0.6)] to-[rgba(142,192,252,0.6)] 
-      dark:from-[rgba(0,0,0,0.74)] dark:via-[rgba(38,48,59,0.6)] dark:to-[rgba(9,56,114,0.6)] 
+      dark:from-[rgba(0,0,0,0.6)] dark:via-[rgba(38,48,59,0.6)] dark:to-[rgba(9,56,114,0.6)] 
       z-50 transition-all duration-300"
     >
       <div className="flex items-center justify-between h-full pl-1 pr-4">
@@ -66,13 +66,13 @@ export function Navbar({ sidebarOpen, setSidebarOpen, sidebarCollapsed, onPageCh
         <div className="flex items-center gap-2 justify-end flex-1">
           {/* Dark mode toggle button */}
           <Button
-          className="text-slate-700 dark:text-slate-300"
+            className="text-slate-700 dark:text-slate-400 hover:bg-transparent hover:text-blue-400 dark:hover:text-white transition-colors duration-200"
             variant="ghost"
             size="icon"
             aria-label="Toggle dark mode"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           >
-            {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            {theme === 'dark' ? <Sun/> : <Moon/>}
           </Button>
 
           <NotificationDropdown activities={activities} loading={loading} onPageChange={onPageChange} />
@@ -80,11 +80,11 @@ export function Navbar({ sidebarOpen, setSidebarOpen, sidebarCollapsed, onPageCh
           {/* Profile dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-10 px-3 rounded-full flex items-center space-x-2">
+              <Button variant="ghost" className="relative h-10 pl-3 pr-1 rounded-full flex items-center space-x-2 hover:bg-sky-100 dark:hover:bg-sky-700">
                 <div className="flex items-center space-x-2">
                   <div className="text-right">
-                    <p className="font-medium text-gray-900 dark:text-white text-sm">{user?.name}</p>
-                    <p className="text-xs leading-none text-muted-foreground dark:text-white">
+                    <p className="font-medium text-slate-800 dark:text-slate-100 text-sm">{user?.name}</p>
+                    <p className="text-xs leading-none text-slate-600 dark:text-slate-300">
                       {user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1).toLowerCase() : ''}
                     </p>
                   </div>
