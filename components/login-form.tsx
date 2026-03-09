@@ -44,7 +44,7 @@ export function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
+    <div className="dark min-h-screen flex items-center justify-center relative overflow-hidden">
       {/* Animated background video full screen */}
       <video
         src="/login_background_animation.mp4"
@@ -56,12 +56,12 @@ export function LoginForm() {
         style={{ pointerEvents: 'none', userSelect: 'none', opacity: 1 }}
       />
       {/* Split card layout */}
-      <div className="w-full h-fit max-w-4xl z-10 flex flex-row justify-between rounded-2xl shadow-lg overflow-hidden">
+      <div className="w-full z-10 flex flex-row items-stretch justify-center gap-6 md:gap-10 max-w-5xl h-[550px] px-6 py-4">
         {/* Login form card */}
-        <div className="basis-1/2 rounded-2xl flex flex-col items-center justify-center p-0 bg-gradient-to-b from-[rgba(0,0,0,0.25)] to-transparent backdrop-blur-3xl">
-          <Card className="bg-[#f9fafb00] shadow-none p-0 rounded-2xl w-full backdrop-blur-2xl ">
+        <div className="flex-1 w-full max-w-[420px] rounded-2xl flex flex-col items-center justify-center p-0 bg-gradient-to-b from-[rgba(0,0,0,0.25)] to-transparent backdrop-blur-3xl shadow-lg border border-slate-800/50 overflow-hidden">
+          <Card className="bg-transparent border-none shadow-none p-0 rounded-2xl w-full backdrop-blur-2xl">
             <CardContent className="p-8 flex flex-col items-center">
-              <Icons.logo className="h-28 w-auto" />
+              <Icons.logo className="h-20 w-auto mb-5" />
               <h1 className="text-3xl text-slate-400 tracking-tight mb-2 mt-0" style={{ fontFamily: 'Gotham, Helvetica, Arial, sans-serif', fontWeight: 'normal' }}>Welcome back</h1>
               <p className="text-base text-slate-500 text-muted-foreground mb-6">
                 Enter your email to sign in to your account
@@ -113,7 +113,7 @@ export function LoginForm() {
           </Card>
         </div>
         {/* Side illustration card */}
-        <div className="hidden md:flex flex-col items-center justify-center ">
+        <div className="hidden md:flex flex-1 w-full max-w-[420px] flex-col items-center justify-center rounded-2xl shadow-lg overflow-hidden">
           <LoginSideCard />
         </div>
       </div>

@@ -95,7 +95,7 @@ export function NotificationDropdown({ activities, loading = false, onPageChange
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Notifications" className="relative">
+        <Button variant="ghost" size="icon" aria-label="Notifications" className="relative text-slate-700 dark:text-slate-300">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <Badge 

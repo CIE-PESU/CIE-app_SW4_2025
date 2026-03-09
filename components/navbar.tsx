@@ -35,9 +35,10 @@ export function Navbar({ sidebarOpen, setSidebarOpen, sidebarCollapsed, onPageCh
 
   return (
     <div
-      className={cn(
-        "fixed top-0 w-full left-0 right-0 h-[55px] bg-gradient-to-r from-[rgba(255,255,255,0.6)] via-[rgba(219,234,254,0.6)] to-[rgba(191,219,254,0.6)] dark:bg-dark4 border-b border-gray-200 dark:border-dark3 z-50 transition-all duration-300 backdrop-blur-lg",
-      )}
+      className="fixed top-0 left-0 right-0 w-full h-[55px] backdrop-blur-lg 
+      bg-gradient-to-r from-[rgba(255,255,255,0.6)] via-[rgba(181,210,248,0.6)] to-[rgba(142,192,252,0.6)] 
+      dark:from-[rgba(0,0,0,0.74)] dark:via-[rgba(38,48,59,0.6)] dark:to-[rgba(9,56,114,0.6)] 
+      z-50 transition-all duration-300"
     >
       <div className="flex items-center justify-between h-full pl-1 pr-4">
         {/* Left side: Logo & Mobile menu button */}
@@ -47,16 +48,16 @@ export function Navbar({ sidebarOpen, setSidebarOpen, sidebarCollapsed, onPageCh
               <Menu className="h-4 w-4" />
             </Button>
           </div>
-          
+
           {/* Logo */}
-          <div 
-            className="cursor-pointer flex items-center h-full p-2" 
+          <div
+            className="cursor-pointer flex items-center h-full p-2"
             onClick={() => onPageChange('home')}
             title="Go to Dashboard"
           >
-            <img 
-              src="/logo.png" 
-              alt="CIE Logo" 
+            <img
+              src="/logo.png"
+              alt="CIE Logo"
               className="h-full w-auto object-contain"
             />
           </div>
@@ -65,6 +66,7 @@ export function Navbar({ sidebarOpen, setSidebarOpen, sidebarCollapsed, onPageCh
         <div className="flex items-center gap-2 justify-end flex-1">
           {/* Dark mode toggle button */}
           <Button
+          className="text-slate-700 dark:text-slate-300"
             variant="ghost"
             size="icon"
             aria-label="Toggle dark mode"
@@ -87,7 +89,7 @@ export function Navbar({ sidebarOpen, setSidebarOpen, sidebarCollapsed, onPageCh
                     </p>
                   </div>
                   <Avatar className="h-8 w-8">
-                    <AvatarImage 
+                    <AvatarImage
                       src={user?.role === 'FACULTY' && (user as any)?.profileData?.faculty_id ? `/profile-img/${(user as any).profileData.faculty_id}.jpg` : undefined}
                       alt={user?.name || 'User avatar'}
                       onError={(e) => {
