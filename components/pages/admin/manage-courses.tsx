@@ -23,7 +23,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
-import { Plus, Trash2, BookOpen, Calendar, Users, RefreshCw, List, X, Search, Filter } from "lucide-react"
+import { Plus, Trash2, BookOpen, Calendar, Users, RefreshCw, List, X, Search, Filter, MessageSquare, Edit } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/components/auth-provider"
 
@@ -72,7 +72,6 @@ export function ManageCourses({ facultyOnly }: ManageCoursesProps) {
   const [courseToDelete, setCourseToDelete] = useState<Course | null>(null)
   const { toast } = useToast()
   const { user } = useAuth()
-  const [editMode, setEditMode] = useState(false);
 
   const [newCourse, setNewCourse] = useState({
     course_code: "",
@@ -132,8 +131,8 @@ export function ManageCourses({ facultyOnly }: ManageCoursesProps) {
         course.course_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         course.course_description.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (course.creator?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
-      // Placeholder filter logic (can be extended)
-      const matchesFilter = filter === "all";
+      // Filter logic including 'My Courses'
+      const matchesFilter = filter === "all" || (filter === "my_courses" && course.created_by === user?.id);
       return matchesSearch && matchesFilter;
     }
   )
@@ -421,12 +420,6 @@ export function ManageCourses({ facultyOnly }: ManageCoursesProps) {
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button
-            variant={editMode ? "default" : "outline"}
-            onClick={() => setEditMode((v) => !v)}
-          >
-            {editMode ? "Editing..." : "Edit Mode"}
-          </Button>
 
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
@@ -609,6 +602,7 @@ export function ManageCourses({ facultyOnly }: ManageCoursesProps) {
           className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="all">All Courses</option>
+          <option value="my_courses">My Courses</option>
           {/* Add more filter options here if needed */}
         </select>
       </div>
@@ -650,28 +644,32 @@ export function ManageCourses({ facultyOnly }: ManageCoursesProps) {
                     </span>
                   </div>
                 </div>
-                <div className="flex items-end justify-between mt-4">
+                <div className="flex flex-col mt-4 space-y-3">
                   <span className="text-xs text-gray-400">Created by: {course.creator?.name || 'Unknown User'}</span>
-                  <div className="flex space-x-2">
-                    <Button size="sm" variant="outline" onClick={() => openUnitsSheet(course)}>
-                      <List className="h-4 w-4 mr-1" />
-                      View Units
-                    </Button>
-                    {editMode && (
-                      <>
-                        <button className="btn-edit" onClick={() => openEditDialog(course)}>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{marginRight: 6}}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-2.828 0L9 13zm-6 6v-2a2 2 0 012-2h2" /></svg>
-                          Edit
-                        </button>
-                        <button className="btn-delete" onClick={() => {
-                          setCourseToDelete(course)
-                          setIsDeleteDialogOpen(true)
-                        }}>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{marginRight: 6}}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                          Delete
-                        </button>
-                      </>
-                    )}
+                  <div className="flex items-center justify-between">
+                    <div className="flex space-x-2">
+                      <Button size="sm" variant="outline" onClick={() => openEditDialog(course)}>
+                        <Edit className="h-4 w-4 mr-1" />
+                        Edit
+                      </Button>
+                      <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => {
+                        setCourseToDelete(course)
+                        setIsDeleteDialogOpen(true)
+                      }}>
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Delete
+                      </Button>
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button size="sm" variant="outline">
+                        <MessageSquare className="h-4 w-4 mr-1" />
+                        View Feedback
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => openUnitsSheet(course)}>
+                        <List className="h-4 w-4 mr-1" />
+                        View Units
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </CardContent>
