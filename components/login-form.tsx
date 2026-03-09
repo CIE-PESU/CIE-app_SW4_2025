@@ -13,9 +13,9 @@ import { LoginSideCard } from "./login-sidecard";
 // Inline Icons implementation
 const Icons = {
   logo: (props: React.ImgHTMLAttributes<HTMLImageElement>) => (
-    <img 
-      src="/logo.png" 
-      alt="Logo" 
+    <img
+      src="/logo.png"
+      alt="Logo"
       className="h-16 w-auto"
       {...props}
     />
@@ -24,7 +24,7 @@ const Icons = {
 }
 
 export function LoginForm() {
-  const [email, setEmail] = React.useState("")  
+  const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
   const [error, setError] = React.useState("")
   const [isLoading, setIsLoading] = React.useState(false)
@@ -39,7 +39,7 @@ export function LoginForm() {
     if (!success) {
       setError("Invalid email or password")
     }
-    
+
     setIsLoading(false)
   }
 
@@ -55,10 +55,10 @@ export function LoginForm() {
         playsInline
         style={{ pointerEvents: 'none', userSelect: 'none', opacity: 1 }}
       />
-        {/* Split card layout */}
-        <div className="w-full h-fit max-w-4xl z-10 flex flex-row justify-between rounded-2xl shadow-lg overflow-hidden">
+      {/* Split card layout */}
+      <div className="w-full h-fit max-w-4xl z-10 flex flex-row justify-between rounded-2xl shadow-lg overflow-hidden">
         {/* Login form card */}
-        <div className="basis-1/2 rounded-2xl flex flex-col items-center justify-center p-0 bg-gradient-to-b from-[rgba(0,0,0,0.25)] to-transparent backdrop-blur-2xl">
+        <div className="basis-1/2 rounded-2xl flex flex-col items-center justify-center p-0 bg-gradient-to-b from-[rgba(0,0,0,0.25)] to-transparent backdrop-blur-3xl">
           <Card className="bg-[#f9fafb00] shadow-none p-0 rounded-2xl w-full backdrop-blur-2xl ">
             <CardContent className="p-8 flex flex-col items-center">
               <Icons.logo className="h-28 w-auto" />
@@ -93,7 +93,7 @@ export function LoginForm() {
                   </div>
                   <Input
                     id="password"
-                    placeholder="••••••••"
+                    placeholder="Enter your password"
                     type="password"
                     autoComplete="current-password"
                     disabled={isLoading}
