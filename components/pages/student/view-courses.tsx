@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -12,7 +12,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
-import { BookOpen, Calendar, UserPlus, Trash2, RefreshCw, List, Clock, FileText } from "lucide-react"
+import { BookOpen, Calendar, UserPlus, Trash2, RefreshCw, List, Clock, FileText, Search, Filter, MessageSquare } from "lucide-react"
+import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/components/auth-provider"
 
@@ -51,6 +52,8 @@ export function ViewCourses() {
   const [loading, setLoading] = useState(true)
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
   const [isUnitsSheetOpen, setIsUnitsSheetOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [filter, setFilter] = useState("all")
   const { toast } = useToast()
 
   useEffect(() => {
@@ -127,6 +130,35 @@ export function ViewCourses() {
     return units.reduce((total, unit) => total + unit.assignment_count, 0)
   }
 
+  const getCourseStatus = (course: Course) => {
+    const now = new Date();
+    const start = new Date(course.course_start_date);
+    const end = new Date(course.course_end_date);
+    const enrolled = isEnrolled(course);
+
+    if (enrolled) {
+      if (now > end) return { label: "Completed", color: "bg-green-500" };
+      return { label: "Ongoing", color: "bg-orange-500" };
+    } else {
+      if (now > end) return { label: "Ended", color: "bg-red-500" };
+      return { label: "Available", color: "bg-blue-500" };
+    }
+  };
+
+  const filteredCourses = useMemo(() => {
+    return courses.filter((course) => {
+      const matchesSearch =
+        course.course_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        course.course_description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        course.course_code.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const enrolled = isEnrolled(course);
+      const matchesFilter = filter === "all" || (filter === "my_courses" && enrolled);
+      
+      return matchesSearch && matchesFilter;
+    });
+  }, [courses, searchTerm, filter, user]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -137,44 +169,100 @@ export function ViewCourses() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Available Courses</h1>
           <p className="text-gray-600 mt-2">Browse and sign up for available courses</p>
         </div>
-        <Button onClick={fetchData} variant="outline">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
+        <div className="flex items-center space-x-2">
+          <Button onClick={fetchData} variant="outline">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div className="flex items-center gap-2 flex-1">
+          <div className="relative w-full max-w-xs">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search courses..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 w-full"
+            />
+          </div>
+          <Filter className="h-5 w-5 text-gray-400 mx-2" />
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900"
+          >
+            <option value="all">All Courses</option>
+            <option value="my_courses">My Courses</option>
+          </select>
+        </div>
+
+        {/* Status Legend */}
+        <div className="flex items-center gap-4 text-sm bg-gray-50 dark:bg-slate-800/50 px-4 py-2 rounded-lg border border-gray-100 dark:border-slate-700">
+          <div className="flex items-center gap-1.5">
+            <div className="h-2 w-2 rounded-full bg-green-500"></div>
+            <span className="text-gray-600 dark:text-slate-400">Completed</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="h-2 w-2 rounded-full bg-orange-500"></div>
+            <span className="text-gray-600 dark:text-slate-400">Ongoing</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+            <span className="text-gray-600 dark:text-slate-400">Available</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="h-2 w-2 rounded-full bg-red-500"></div>
+            <span className="text-gray-600 dark:text-slate-400">Ended</span>
+          </div>
+        </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {courses.length === 0 ? (
-          <Card className="col-span-2">
+        {filteredCourses.length === 0 ? (
+          <Card className="col-span-1 md:col-span-2 xl:col-span-3">
             <CardContent className="p-8 text-center">
               <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No courses available</h3>
-              <p className="text-gray-600">Check back later for available courses.</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No courses found</h3>
+              <p className="text-gray-600">Try adjusting your search or filters.</p>
             </CardContent>
           </Card>
         ) : (
-          courses.map((course) => {
+          filteredCourses.map((course) => {
             const enrolled = isEnrolled(course)
             const totalHours = getTotalHours(course.course_units || [])
             const totalAssignments = getTotalAssignments(course.course_units || [])
             return (
-              <Card key={course.id} className="student-card flex flex-col justify-between min-h-[280px] max-w-md mx-auto hover:shadow-lg transition-shadow rounded-xl border border-gray-200 p-4">
+              <Card 
+                key={course.id} 
+                className="bg-white dark:bg-slate-900 flex flex-col justify-between min-h-[280px] w-full shadow-sm hover:shadow-md transition-shadow rounded-xl border border-gray-200 dark:border-slate-800 p-4 cursor-pointer"
+                onClick={() => openUnitsSheet(course)}
+              >
                 <CardHeader className="pb-2 px-0">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <CardTitle className="flex items-center space-x-2 text-lg">
-                        <BookOpen className="h-5 w-5 text-blue-600" />
-                        <span className="font-semibold text-base">{course.course_name}</span>
-                      </CardTitle>
-                      <CardDescription className="text-sm text-gray-500 mt-1 line-clamp-2">{course.course_description}</CardDescription>
-                      <span className="text-xs text-gray-400 mt-1 block">{course.course_code}</span>
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="flex items-center space-x-2 min-w-0">
+                      <BookOpen className="h-5 w-5 text-blue-600" />
+                      <span className="font-bold text-lg text-gray-900 truncate">{course.course_name}</span>
                     </div>
-                    <Badge variant="outline" className="ml-2 mt-1">{enrolled ? "Enrolled" : "Available"}</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-slate-200 dark:bg-slate-600 text-slate-900 dark:text-slate-100 border-0 whitespace-nowrap pointer-events-none">
+                        {course.course_units?.length || 0} Units
+                      </Badge>
+                      <Badge className={`${getCourseStatus(course).color} text-white border-0 whitespace-nowrap pointer-events-none`}>
+                        {getCourseStatus(course).label}
+                      </Badge>
+                    </div>
                   </div>
+                  <CardDescription className="text-gray-600 text-sm line-clamp-2">
+                    {course.course_description}
+                  </CardDescription>
+                  <span className="text-xs text-gray-400 mt-1 block">{course.course_code}</span>
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col justify-between px-0 pb-0">
                   <div className="space-y-2">
@@ -201,12 +289,29 @@ export function ViewCourses() {
                   <div className="flex items-center justify-between mt-4">
                     <span className="text-xs text-gray-500">Created by: {course.creator?.name || course.created_by}</span>
                     <div className="flex space-x-2">
-                      <Button size="sm" variant="outline" onClick={() => openUnitsSheet(course)}>
-                        <List className="h-4 w-4 mr-1" /> View Units
-                      </Button>
-                      {!enrolled && (
-                        <Button size="sm" onClick={() => handleSignUp(course.id)}>
-                          <UserPlus className="h-4 w-4 mr-1" /> Sign Up
+                      {enrolled && (
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Logic for giving feedback could be added here
+                          }}
+                        >
+                          <MessageSquare className="h-4 w-4 md:mr-1" />
+                          <span className="hidden md:inline">Give Feedback</span>
+                        </Button>
+                      )}
+                      {!enrolled && getCourseStatus(course).label === "Available" && (
+                        <Button 
+                          size="sm" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSignUp(course.id);
+                          }}
+                        >
+                          <UserPlus className="h-4 w-4 md:mr-1" />
+                          <span className="hidden md:inline">Sign Up</span>
                         </Button>
                       )}
                     </div>
