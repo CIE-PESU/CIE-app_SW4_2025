@@ -48,9 +48,9 @@ export function Navbar({ sidebarOpen, setSidebarOpen, sidebarCollapsed, onPageCh
               variant="ghost" 
               size="icon" 
               onClick={() => setSidebarOpen(!sidebarOpen)} 
-              className="h-8 w-8 ml-1 text-slate-700 dark:text-slate-400 hover:bg-transparent hover:text-blue-500 dark:hover:text-white transition-colors duration-200"
+              className="h-9 w-9 ml-1 text-slate-700 dark:text-slate-400 hover:bg-transparent hover:text-blue-500 dark:hover:text-white transition-colors duration-200 [&_svg]:size-6"
             >
-              <Menu/>
+              <Menu />
             </Button>
           </div>
 
@@ -71,13 +71,13 @@ export function Navbar({ sidebarOpen, setSidebarOpen, sidebarCollapsed, onPageCh
         <div className="flex items-center gap-2 justify-end flex-1">
           {/* Dark mode toggle button */}
           <Button
-            className="text-slate-700 dark:text-slate-400 hover:bg-transparent hover:text-blue-500 dark:hover:text-white transition-colors duration-200"
+            className="text-slate-700 dark:text-slate-400 hover:bg-transparent hover:text-blue-500 dark:hover:text-white transition-colors duration-200 [&_svg]:size-6"
             variant="ghost"
             size="icon"
             aria-label="Toggle dark mode"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           >
-            {theme === 'dark' ? <Sun/> : <Moon/>}
+            {theme === 'dark' ? <Sun /> : <Moon />}
           </Button>
 
           <NotificationDropdown activities={activities} loading={loading} onPageChange={onPageChange} />
