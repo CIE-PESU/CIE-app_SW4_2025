@@ -340,13 +340,13 @@ export function DashboardLayout({ children, currentPage, onPageChange, menuItems
           </div>
 
           {/* Collapse button */}
-          <div className="hidden lg:block p-2 border-t border-gray-100">
+          <div className="hidden lg:block mx-3 py-2 border-t border-gray-200/60 dark:border-gray-800/60">
             <button
               className={cn(
-                "flex items-center text-gray-600 hover:bg-emerald-100 hover:text-emerald-800 transition-all duration-200 rounded-lg overflow-hidden",
+                "flex items-center text-gray-800 dark:text-dark1 hover:bg-blue-100 hover:text-indigo-800 transition-all duration-200 rounded-lg overflow-hidden transform hover:scale-105 focus:scale-105",
                 sidebarCollapsed 
-                  ? "aspect-square h-10 w-10 justify-center mx-auto" 
-                  : "w-full p-2 px-3 mx-1"
+                  ? "lg:aspect-square lg:h-10 lg:w-10 lg:justify-center lg:mx-auto w-full p-3 px-4" 
+                  : "w-full p-2 px-3"
               )}
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             >
