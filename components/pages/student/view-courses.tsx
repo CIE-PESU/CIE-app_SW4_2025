@@ -291,8 +291,8 @@ export function ViewCourses() {
           <Card className="col-span-full">
             <CardContent className="p-8 text-center">
               <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No courses found</h3>
-              <p className="text-gray-600">Try adjusting your search or filters.</p>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No courses found</h3>
+              <p className="text-gray-600 dark:text-gray-400">Try adjusting your search or filters.</p>
             </CardContent>
           </Card>
         ) : (

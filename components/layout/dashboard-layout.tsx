@@ -261,7 +261,7 @@ export function DashboardLayout({ children, currentPage, onPageChange, menuItems
           "fixed top-[55px] bottom-0 left-0 z-40 transform transition-all duration-500 ease-in-out lg:translate-x-0 rounded-tr-2xl overflow-hidden shadow-2xl backdrop-blur-lg",
           sidebarWidth,
           sidebarOpen ? "translate-x-0" : "-translate-x-full",
-          "bg-[rgba(255,255,255,0.55)] dark:bg-[rgba(17,17,17,0.8)] text-sidebar-foreground"
+          "bg-[rgba(255,255,255,0.65)] dark:bg-[rgba(17,17,17,0.8)] text-sidebar-foreground"
         )}
         style={{
           boxShadow: '4px 0 15px rgba(0, 0, 0, 0.1)'
@@ -283,7 +283,7 @@ export function DashboardLayout({ children, currentPage, onPageChange, menuItems
               >
                 <button
                   className={cn(
-                    "w-full flex items-center p-3 transition-all duration-200 rounded-lg mx-1",
+                    "w-full flex items-center p-3 transition-all duration-200 rounded-lg mx-1 overflow-hidden",
                     sidebarCollapsed ? "justify-center px-2" : "px-4",
                     item.disabled 
                       ? "text-gray-400 cursor-not-allowed opacity-50" 
@@ -302,7 +302,7 @@ export function DashboardLayout({ children, currentPage, onPageChange, menuItems
                 >
                   <item.icon 
                     className={cn(
-                      "h-5 w-5 transition-transform duration-300",
+                      "h-5 w-5 transition-transform duration-300 flex-shrink-0 min-w-[8px]",
                       !sidebarCollapsed && "mr-3",
                       item.disabled 
                         ? "text-gray-400" 
@@ -312,7 +312,7 @@ export function DashboardLayout({ children, currentPage, onPageChange, menuItems
                     )} 
                   />
                   {!sidebarCollapsed && (
-                    <span className="text-sm font-medium">
+                    <span className="text-sm font-medium whitespace-nowrap truncate">
                       {item.label}
                     </span>
                   )}
@@ -340,20 +340,20 @@ export function DashboardLayout({ children, currentPage, onPageChange, menuItems
           <div className="hidden lg:block p-2 border-t border-gray-100">
             <button
               className={cn(
-                "w-full flex items-center text-gray-600 hover:bg-gray-100 p-2 rounded transition-all duration-200",
+                "w-full flex items-center text-gray-600 hover:bg-gray-100 p-2 rounded transition-all duration-200 overflow-hidden",
                 sidebarCollapsed ? "justify-center px-2" : "px-3"
               )}
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             >
               <ChevronLeft
                 className={cn(
-                  "h-5 w-5 transition-transform duration-300",
+                  "h-5 w-5 transition-transform duration-300 flex-shrink-0 min-w-[8px]",
                   sidebarCollapsed ? "rotate-180" : "",
                   !sidebarCollapsed && "mr-3"
                 )}
               />
               {!sidebarCollapsed && (
-                <span className="text-sm font-medium transition-opacity duration-300">
+                <span className="text-sm font-medium transition-opacity duration-300 whitespace-nowrap truncate">
                   Collapse
                 </span>
               )}
