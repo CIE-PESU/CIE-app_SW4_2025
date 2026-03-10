@@ -283,9 +283,9 @@ export function DashboardLayout({ children, currentPage, onPageChange, menuItems
               >
                 <button
                   className={cn(
-                    "flex items-center transition-all duration-200 rounded-lg overflow-hidden",
+                    "flex items-center transition-all duration-200 rounded-lg overflow-hidden h-11",
                     sidebarCollapsed 
-                      ? "lg:aspect-square lg:h-10 lg:w-10 lg:justify-center lg:mx-auto w-full p-3 px-4 mx-1" 
+                      ? "lg:aspect-square lg:h-11 lg:w-11 lg:justify-center lg:mx-auto w-full p-3 px-4 mx-1" 
                       : "w-full p-3 px-4 mx-1",
                     item.disabled 
                       ? "text-gray-400 cursor-not-allowed opacity-50" 
@@ -343,10 +343,10 @@ export function DashboardLayout({ children, currentPage, onPageChange, menuItems
           <div className="hidden lg:block mx-3 py-2 border-t border-gray-200/60 dark:border-gray-800/60">
             <button
               className={cn(
-                "flex items-center text-gray-800 dark:text-dark1 hover:bg-blue-100 hover:text-indigo-800 transition-all duration-200 rounded-lg overflow-hidden transform hover:scale-105 focus:scale-105",
+                "flex items-center text-gray-800 dark:text-dark1 hover:bg-blue-100 hover:text-indigo-800 transition-all duration-200 rounded-lg overflow-hidden transform hover:scale-105 focus:scale-105 h-11",
                 sidebarCollapsed 
-                  ? "lg:aspect-square lg:h-10 lg:w-10 lg:justify-center lg:mx-auto w-full p-3 px-4" 
-                  : "w-full p-2 px-3"
+                  ? "lg:aspect-square lg:h-11 lg:w-11 lg:justify-center lg:mx-auto w-full p-3 px-4" 
+                  : "w-full p-2 px-3 mx-1"
               )}
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             >
