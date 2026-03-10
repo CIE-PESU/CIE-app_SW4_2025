@@ -131,7 +131,7 @@ export function StudentHome({ onPageChange }: StudentHomeProps) {
   return (
     <div className="space-y-6 min-h-screen">
       {/* Hero Section - match admin dashboard style */}
-      <div className="rounded-lg shadow-2xl p-4 min-h-[100px] flex flex-col md:flex-row items-center justify-between relative overflow-hidden mb-0" style={{ background: "linear-gradient(90deg, #023E8A 0%, #0077B6 40%, #00B4D8 80%, #b6e6fa 100%)" }}>
+      <div className="rounded-lg shadow-2xl p-4 min-h-[100px] flex flex-col md:flex-row items-center justify-between relative overflow-hidden mb-0" style={{ background: "linear-gradient(135deg, #023E8A 0%, #0077B6 35%, #48CAE4 65%, #FFE5B4 85%, #FFB347 100%)" }}>
         <div className="flex-1 z-6">
           <span className="text-white text-2xl font-extrabold tracking-tight">CIE Student Portal</span>
           <h2 className="text-3xl md:text-3xl font-extrabold text-white mb-2 mt-2">Empower your learning journey!</h2>

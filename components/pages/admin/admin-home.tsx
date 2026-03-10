@@ -90,7 +90,7 @@ export function AdminHome({ onPageChange }: AdminHomeProps) {
   return (
     <div className="space-y-6">
       {/* Hero Section */}
-      <div className="rounded-lg shadow-2xl p-4 min-h-[100px] flex flex-col md:flex-row items-center justify-between relative overflow-hidden" style={{ background: "linear-gradient(120deg, #023E8A 0%, #0077B6 60%, #00B4D8 100%)" }}>
+      <div className="rounded-lg shadow-2xl p-4 min-h-[100px] flex flex-col md:flex-row items-center justify-between relative overflow-hidden" style={{ background: "linear-gradient(135deg, #023E8A 0%, #0077B6 35%, #48CAE4 65%, #FFE5B4 85%, #FFB347 100%)" }}>
         <div className="flex-1 z-6">
           <div className="flex items-center mb-2 justify-between">
             <span className="text-white text-2xl font-extrabold tracking-tight">CIE Admin Portal</span>
