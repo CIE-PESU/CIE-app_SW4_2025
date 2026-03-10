@@ -23,7 +23,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
-import { Plus, Trash2, BookOpen, Calendar, Users, RefreshCw, List, X, Search, Filter, MessageSquare, Edit } from "lucide-react"
+import { Plus, Trash2, BookOpen, Calendar, Users, RefreshCw, List, X, Search, Filter, MessageSquare, Edit, Star } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/components/auth-provider"
 
@@ -71,6 +72,9 @@ export function ManageCourses({ facultyOnly }: ManageCoursesProps) {
   const [filter, setFilter] = useState("all")
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [courseToDelete, setCourseToDelete] = useState<Course | null>(null)
+  const [isFeedbackSheetOpen, setIsFeedbackSheetOpen] = useState(false)
+  const [courseFeedbacks, setCourseFeedbacks] = useState<any[]>([])
+  const [isFeedbacksLoading, setIsFeedbacksLoading] = useState(false)
   const { toast } = useToast()
   const { user } = useAuth()
 
@@ -280,6 +284,39 @@ export function ManageCourses({ facultyOnly }: ManageCoursesProps) {
   const openUnitsSheet = (course: Course) => {
     setSelectedCourse(course)
     setIsUnitsSheetOpen(true)
+  }
+
+  const openFeedbackSheet = async (course: Course, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setSelectedCourse(course)
+    setIsFeedbackSheetOpen(true)
+    fetchCourseFeedbacks(course.id)
+  }
+
+  const fetchCourseFeedbacks = async (courseId: string) => {
+    try {
+      setIsFeedbacksLoading(true)
+      const response = await fetch(`/api/courses/feedback?courseId=${courseId}`, {
+        headers: {
+          "x-user-id": user?.id || "",
+        },
+      })
+      const data = await response.json()
+      if (response.ok) {
+        setCourseFeedbacks(data.feedbacks || [])
+      } else {
+        throw new Error(data.error || "Failed to fetch feedbacks")
+      }
+    } catch (error) {
+      console.error("Error fetching feedbacks:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load feedback data",
+        variant: "destructive",
+      })
+    } finally {
+      setIsFeedbacksLoading(false)
+    }
   }
 
   const openEditDialog = (course: Course) => {
@@ -716,10 +753,7 @@ export function ManageCourses({ facultyOnly }: ManageCoursesProps) {
                       <Button 
                         size="sm" 
                         variant="outline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // Handle feedback click here if needed
-                        }}
+                        onClick={(e) => openFeedbackSheet(course, e)}
                       >
                         <MessageSquare className="h-4 w-4 md:mr-1" />
                         <span className="hidden md:inline">View Feedback</span>
@@ -761,6 +795,81 @@ export function ManageCourses({ facultyOnly }: ManageCoursesProps) {
                   </div>
                 </Card>
               ))
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Course Feedback Sheet */}
+      <Sheet open={isFeedbackSheetOpen} onOpenChange={setIsFeedbackSheetOpen}>
+        <SheetContent className="w-[450px] sm:w-[540px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Course Feedback</SheetTitle>
+            <SheetDescription>
+              Feedback for {selectedCourse?.course_name} ({selectedCourse?.course_code})
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-6 space-y-6">
+            {isFeedbacksLoading ? (
+              <div className="flex justify-center py-8">
+                <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
+              </div>
+            ) : courseFeedbacks.length === 0 ? (
+              <div className="text-center py-12 bg-gray-50 dark:bg-slate-800/50 rounded-lg border-2 border-dashed border-gray-200 dark:border-slate-700">
+                <MessageSquare className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500 font-medium">No feedback submitted yet</p>
+                <p className="text-sm text-gray-400">Students will appear here once they give feedback.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between px-2">
+                  <span className="text-sm font-medium text-gray-500">{courseFeedbacks.length} Responses</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-sm font-bold text-gray-900">
+                      {(courseFeedbacks.reduce((acc, f) => acc + f.rating, 0) / courseFeedbacks.length).toFixed(1)}
+                    </span>
+                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                    <span className="text-xs text-gray-400">Average</span>
+                  </div>
+                </div>
+                {courseFeedbacks.map((feedback) => (
+                  <Card key={feedback.id} className="overflow-hidden border-slate-200 dark:border-slate-700">
+                    <CardHeader className="p-4 pb-2 bg-slate-50/50 dark:bg-slate-800/20">
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-2">
+                          <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-xs">
+                            {feedback.student?.user?.name?.charAt(0) || 'S'}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                              {feedback.student?.user?.name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {new Date(feedback.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center">
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <Star 
+                              key={s} 
+                              className={cn(
+                                "h-3.5 w-3.5",
+                                s <= feedback.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
+                              )} 
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-2">
+                      <p className="text-sm text-gray-700 dark:text-gray-300 italic">
+                        "{feedback.comment}"
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             )}
           </div>
         </SheetContent>

@@ -261,7 +261,7 @@ export function DashboardLayout({ children, currentPage, onPageChange, menuItems
           "fixed top-[55px] bottom-0 left-0 z-40 transform transition-all duration-500 ease-in-out lg:translate-x-0 rounded-tr-2xl overflow-hidden shadow-2xl backdrop-blur-lg",
           sidebarWidth,
           sidebarOpen ? "translate-x-0" : "-translate-x-full",
-          "bg-[#e3f0ff]/60 dark:bg-sidebar/60 text-sidebar-foreground"
+          "bg-[rgba(255,255,255,0.80)] dark:bg-[rgba(0,0,0,0.80)] text-sidebar-foreground"
         )}
         style={{
           boxShadow: '4px 0 15px rgba(0, 0, 0, 0.1)'
@@ -373,7 +373,7 @@ export function DashboardLayout({ children, currentPage, onPageChange, menuItems
 
       {/* Mobile overlay */}
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
     </div>
   )

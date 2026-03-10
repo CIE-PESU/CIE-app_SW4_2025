@@ -12,7 +12,18 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
-import { BookOpen, Calendar, UserPlus, Trash2, RefreshCw, List, Clock, FileText, Search, Filter, MessageSquare } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { BookOpen, Calendar, UserPlus, Trash2, RefreshCw, List, Clock, FileText, Search, Filter, MessageSquare, Star } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/components/auth-provider"
@@ -54,6 +65,11 @@ export function ViewCourses() {
   const [isUnitsSheetOpen, setIsUnitsSheetOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [filter, setFilter] = useState("all")
+  const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false)
+  const [feedbackCourse, setFeedbackCourse] = useState<Course | null>(null)
+  const [feedbackRating, setFeedbackRating] = useState(5)
+  const [feedbackComment, setFeedbackComment] = useState("")
+  const [submittingFeedback, setSubmittingFeedback] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -120,6 +136,52 @@ export function ViewCourses() {
   const openUnitsSheet = (course: Course) => {
     setSelectedCourse(course)
     setIsUnitsSheetOpen(true)
+  }
+
+  const openFeedbackDialog = (course: Course, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setFeedbackCourse(course)
+    setFeedbackRating(5)
+    setFeedbackComment("")
+    setIsFeedbackDialogOpen(true)
+  }
+
+  const handleSubmitFeedback = async () => {
+    if (!feedbackCourse || !user) return
+    try {
+      setSubmittingFeedback(true)
+      const response = await fetch("/api/courses/feedback", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": user.id,
+        },
+        body: JSON.stringify({
+          courseId: feedbackCourse.id,
+          rating: feedbackRating,
+          comment: feedbackComment,
+        }),
+      })
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Feedback submitted successfully",
+        })
+        setIsFeedbackDialogOpen(false)
+      } else {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to submit feedback")
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to submit feedback",
+        variant: "destructive",
+      })
+    } finally {
+      setSubmittingFeedback(false)
+    }
   }
 
   const getTotalHours = (units: CourseUnit[]) => {
@@ -293,10 +355,7 @@ export function ViewCourses() {
                         <Button 
                           size="sm" 
                           variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // Logic for giving feedback could be added here
-                          }}
+                          onClick={(e) => openFeedbackDialog(course, e)}
                         >
                           <MessageSquare className="h-4 w-4 md:mr-1" />
                           <span className="hidden md:inline">Give Feedback</span>
@@ -355,6 +414,61 @@ export function ViewCourses() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Feedback Dialog */}
+      <Dialog open={isFeedbackDialogOpen} onOpenChange={setIsFeedbackDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Course Feedback</DialogTitle>
+            <DialogDescription>
+              Share your thoughts on {feedbackCourse?.course_name}. Your feedback helps us improve.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="rating">Rating</Label>
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Button
+                    key={star}
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="p-1 h-auto hover:bg-transparent"
+                    onClick={() => setFeedbackRating(star)}
+                  >
+                    <Star
+                      className={cn(
+                        "h-6 w-6 transition-colors",
+                        star <= feedbackRating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
+                      )}
+                    />
+                  </Button>
+                ))}
+                <span className="ml-2 text-sm font-medium text-gray-600">{feedbackRating}/5</span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="comment">Comments</Label>
+              <Textarea
+                id="comment"
+                placeholder="What did you like? What could be improved?"
+                value={feedbackComment}
+                onChange={(e) => setFeedbackComment(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsFeedbackDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmitFeedback} disabled={submittingFeedback || !feedbackComment.trim()}>
+              {submittingFeedback ? "Submitting..." : "Submit Feedback"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
