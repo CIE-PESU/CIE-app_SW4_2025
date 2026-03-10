@@ -686,7 +686,11 @@ export function ManageCourses({ facultyOnly }: ManageCoursesProps) {
             <div 
               key={course.id} 
               className="admin-card rounded-xl shadow-sm border hover:shadow-md transition-shadow flex flex-col justify-between h-full cursor-pointer"
-              onClick={() => openUnitsSheet(course)}
+              onClick={() => {
+                const selection = window.getSelection();
+                if (selection && selection.toString().length > 0) return;
+                openUnitsSheet(course);
+              }}
             >
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-center mb-2">

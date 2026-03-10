@@ -304,7 +304,11 @@ export function ViewCourses() {
               <Card 
                 key={course.id} 
                 className="admin-card flex flex-col justify-between min-h-[280px] w-full cursor-pointer"
-                onClick={() => openUnitsSheet(course)}
+                onClick={() => {
+                  const selection = window.getSelection();
+                  if (selection && selection.toString().length > 0) return;
+                  openUnitsSheet(course);
+                }}
               >
                 <CardHeader className="pb-2 px-0">
                   <div className="flex justify-between items-center mb-2">
