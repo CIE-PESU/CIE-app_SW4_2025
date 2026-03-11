@@ -95,12 +95,12 @@ export function NotificationDropdown({ activities, loading = false, onPageChange
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Notifications" className="relative text-slate-700 dark:text-slate-400 hover:bg-transparent hover:text-blue-500 dark:hover:text-white transition-colors duration-200 [&_svg]:size-6">
+        <Button variant="ghost" size="icon" aria-label="Notifications" className="relative text-slate-700 dark:text-slate-400 hover:bg-transparent hover:text-[#E75A2D] dark:hover:text-[#E75A2D] active:text-[#E75A2D] dark:active:text-[#E75A2D] transition-all duration-200 [&_svg]:size-6 hover:scale-[1.15] active:scale-[1.15] select-none">
           <Bell />
           {unreadCount > 0 && (
             <Badge
               variant="destructive"
-              className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+              className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs transition-transform duration-200"
             >
               {unreadCount > 99 ? '99+' : unreadCount}
             </Badge>
