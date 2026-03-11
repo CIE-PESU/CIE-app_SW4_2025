@@ -14,7 +14,7 @@ import { LoginSideCard } from "./login-sidecard";
 const Icons = {
   logo: (props: React.ImgHTMLAttributes<HTMLImageElement>) => (
     <img
-      src="/logo.png"
+      src="/cie_logo_dark.png"
       alt="Logo"
       className="h-16 w-auto"
       {...props}
