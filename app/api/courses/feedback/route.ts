@@ -6,6 +6,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const courseId = searchParams.get("courseId")
+    const unitId = searchParams.get("unitId")
     const userId = request.headers.get("x-user-id")
 
     if (!userId) {
@@ -21,11 +22,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Course ID is required" }, { status: 400 })
     }
 
-    // Faculty/Admin can see all feedback for a course
-    // Students can only see their own feedback (though the UI might not need this yet)
     const feedbacks = await prisma.courseFeedback.findMany({
       where: {
         course_id: courseId,
+        ...(unitId ? { unit_id: unitId } : {}),
         ...(user.role === "STUDENT" ? { student_id: user.id } : {})
       },
       include: {
@@ -35,8 +35,11 @@ export async function GET(request: NextRequest) {
               select: { name: true, email: true }
             }
           }
+        },
+        unit: {
+          select: { unit_number: true, unit_name: true }
         }
-      },
+      } as any,
       orderBy: {
         created_at: "desc"
       }
@@ -62,9 +65,9 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await request.json()
-    const { courseId, rating, comment } = data
+    const { courseId, unitId, rating, comment } = data
 
-    if (!courseId || !rating || !comment) {
+    if (!courseId || !unitId || rating === undefined || rating === null || !comment) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
@@ -83,9 +86,9 @@ export async function POST(request: NextRequest) {
     // Upsert feedback
     const feedback = await prisma.courseFeedback.upsert({
       where: {
-        student_id_course_id: {
+        student_id_unit_id: {
           student_id: studentId,
-          course_id: courseId
+          unit_id: unitId
         }
       },
       update: {
@@ -96,14 +99,18 @@ export async function POST(request: NextRequest) {
       create: {
         course_id: courseId,
         student_id: studentId,
+        unit_id: unitId,
         rating,
         comment
       }
     })
 
-    return NextResponse.json({ feedback })
+    return NextResponse.json({ 
+      message: "Feedback submitted successfully", 
+      feedback 
+    })
   } catch (error) {
-    console.error("Submit feedback error:", error)
+    console.error("Post feedback error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

@@ -121,6 +121,7 @@ model CourseUnit {
   created_date     DateTime @default(now())
   modified_by      String?
   modified_date    DateTime @updatedAt
+  feedbacks       CourseFeedback[]
   course           Course   @relation(fields: [course_id], references: [id], onDelete: Cascade)
 
   @@unique([course_id, unit_number])
@@ -612,13 +613,15 @@ model CourseFeedback {
   id         String   @id @default(cuid())
   course_id  String
   student_id String
+  unit_id    String
   rating     Int      @default(5)
   comment    String
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   course     Course   @relation(fields: [course_id], references: [id], onDelete: Cascade)
   student    Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  unit       CourseUnit @relation(fields: [unit_id], references: [id], onDelete: Cascade)
 
-  @@unique([student_id, course_id])
+  @@unique([student_id, unit_id])
   @@map("course_feedback")
 }

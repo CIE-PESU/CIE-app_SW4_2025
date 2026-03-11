@@ -74,6 +74,7 @@ export function ManageCourses({ facultyOnly }: ManageCoursesProps) {
   const [courseToDelete, setCourseToDelete] = useState<Course | null>(null)
   const [isFeedbackSheetOpen, setIsFeedbackSheetOpen] = useState(false)
   const [courseFeedbacks, setCourseFeedbacks] = useState<any[]>([])
+  const [selectedFeedbackUnitId, setSelectedFeedbackUnitId] = useState<string>("all")
   const [isFeedbacksLoading, setIsFeedbacksLoading] = useState(false)
   const { toast } = useToast()
   const { user } = useAuth()
@@ -289,14 +290,19 @@ export function ManageCourses({ facultyOnly }: ManageCoursesProps) {
   const openFeedbackSheet = async (course: Course, e: React.MouseEvent) => {
     e.stopPropagation()
     setSelectedCourse(course)
+    setSelectedFeedbackUnitId("all")
     setIsFeedbackSheetOpen(true)
-    fetchCourseFeedbacks(course.id)
+    fetchCourseFeedbacks(course.id, "all")
   }
 
-  const fetchCourseFeedbacks = async (courseId: string) => {
+  const fetchCourseFeedbacks = async (courseId: string, unitId?: string) => {
     try {
       setIsFeedbacksLoading(true)
-      const response = await fetch(`/api/courses/feedback?courseId=${courseId}`, {
+      const url = unitId && unitId !== "all" 
+        ? `/api/courses/feedback?courseId=${courseId}&unitId=${unitId}`
+        : `/api/courses/feedback?courseId=${courseId}`;
+        
+      const response = await fetch(url, {
         headers: {
           "x-user-id": user?.id || "",
         },
@@ -808,11 +814,34 @@ export function ManageCourses({ facultyOnly }: ManageCoursesProps) {
       <Sheet open={isFeedbackSheetOpen} onOpenChange={setIsFeedbackSheetOpen}>
         <SheetContent className="w-[450px] sm:w-[540px] overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>Course Feedback</SheetTitle>
+            <SheetTitle>Unit-Wise Feedback</SheetTitle>
             <SheetDescription>
               Feedback for {selectedCourse?.course_name} ({selectedCourse?.course_code})
             </SheetDescription>
           </SheetHeader>
+          
+          <div className="mt-4 pb-4 border-b">
+            <Label htmlFor="feedback_unit_filter" className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2 block">
+              Filter by Unit
+            </Label>
+            <select
+              id="feedback_unit_filter"
+              value={selectedFeedbackUnitId}
+              onChange={(e) => {
+                setSelectedFeedbackUnitId(e.target.value);
+                if (selectedCourse) fetchCourseFeedbacks(selectedCourse.id, e.target.value);
+              }}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <option value="all">All Units</option>
+              {selectedCourse?.course_units?.map((unit) => (
+                <option key={unit.id || unit.unit_number} value={unit.id}>
+                  Unit {unit.unit_number}: {unit.unit_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="mt-6 space-y-6">
             {isFeedbacksLoading ? (
               <div className="flex justify-center py-8">
@@ -830,7 +859,7 @@ export function ManageCourses({ facultyOnly }: ManageCoursesProps) {
                   <span className="text-sm font-medium text-gray-500">{courseFeedbacks.length} Responses</span>
                   <div className="flex items-center gap-1">
                     <span className="text-sm font-bold text-gray-900 dark:text-white">
-                      {(courseFeedbacks.reduce((acc, f) => acc + f.rating, 0) / courseFeedbacks.length).toFixed(1)}
+                      {(courseFeedbacks.reduce((acc, f) => acc + (f.rating || 0), 0) / courseFeedbacks.length).toFixed(1)}
                     </span>
                     <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                     <span className="text-xs text-gray-400">Average</span>
@@ -849,24 +878,34 @@ export function ManageCourses({ facultyOnly }: ManageCoursesProps) {
                               {feedback.student?.user?.name}
                             </p>
                             <p className="text-xs text-gray-500">
-                              {new Date(feedback.created_at).toLocaleDateString()}
+                              Enrolled Student • {new Date(feedback.created_at).toLocaleDateString()}
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center">
-                          {[1, 2, 3, 4, 5].map((s) => (
-                            <Star 
-                              key={s} 
-                              className={cn(
-                                "h-3.5 w-3.5",
-                                s <= feedback.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
-                              )} 
-                            />
-                          ))}
+                        <div className="text-right">
+                          <Badge variant="outline" className="text-[10px] font-bold py-0 h-5 mb-1 bg-white">
+                            Unit {feedback.unit?.unit_number}
+                          </Badge>
+                          <div className="flex items-center justify-end">
+                            {[1, 2, 3, 4, 5].map((s) => (
+                              <Star 
+                                key={s} 
+                                className={cn(
+                                  "h-3 w-3",
+                                  s <= (feedback.rating || 0) ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
+                                )} 
+                              />
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </CardHeader>
                     <CardContent className="p-4 pt-2">
+                      <div className="mb-2">
+                        <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-tighter">
+                          {feedback.unit?.unit_name}
+                        </span>
+                      </div>
                       <p className="text-sm text-gray-700 dark:text-gray-300 italic">
                         "{feedback.comment}"
                       </p>

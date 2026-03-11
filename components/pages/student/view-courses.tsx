@@ -67,6 +67,7 @@ export function ViewCourses() {
   const [filter, setFilter] = useState("all")
   const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false)
   const [feedbackCourse, setFeedbackCourse] = useState<Course | null>(null)
+  const [feedbackUnitId, setFeedbackUnitId] = useState<string>("")
   const [feedbackRating, setFeedbackRating] = useState(5)
   const [feedbackComment, setFeedbackComment] = useState("")
   const [submittingFeedback, setSubmittingFeedback] = useState(false)
@@ -138,9 +139,10 @@ export function ViewCourses() {
     setIsUnitsSheetOpen(true)
   }
 
-  const openFeedbackDialog = (course: Course, e: React.MouseEvent) => {
+  const openFeedbackDialog = (course: Course, unitId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     setFeedbackCourse(course)
+    setFeedbackUnitId(unitId)
     setFeedbackRating(5)
     setFeedbackComment("")
     setIsFeedbackDialogOpen(true)
@@ -158,6 +160,7 @@ export function ViewCourses() {
         },
         body: JSON.stringify({
           courseId: feedbackCourse.id,
+          unitId: feedbackUnitId,
           rating: feedbackRating,
           comment: feedbackComment,
         }),
@@ -355,16 +358,6 @@ export function ViewCourses() {
                   <div className="flex items-center justify-between mt-4">
                     <span className="text-xs text-gray-500">Created by: {course.creator?.name || course.created_by}</span>
                     <div className="flex space-x-2">
-                      {enrolled && (
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={(e) => openFeedbackDialog(course, e)}
-                        >
-                          <MessageSquare className="h-4 w-4 md:mr-1" />
-                          <span className="hidden md:inline">Give Feedback</span>
-                        </Button>
-                      )}
                       {!enrolled && getCourseStatus(course).label === "Available" && (
                         <Button 
                           size="sm" 
@@ -411,6 +404,19 @@ export function ViewCourses() {
                     <div className="flex justify-between text-xs text-gray-500">
                       <span>{unit.assignment_count} assignments</span>
                     </div>
+                    {selectedCourse && isEnrolled(selectedCourse) && (
+                      <div className="mt-3 pt-3 border-t">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="w-full text-blue-600 border-blue-100 hover:bg-blue-50"
+                          onClick={(e) => openFeedbackDialog(selectedCourse, unit.id, e)}
+                        >
+                          <MessageSquare className="h-4 w-4 mr-2" />
+                          Give Feedback
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </Card>
               ))
@@ -423,9 +429,9 @@ export function ViewCourses() {
       <Dialog open={isFeedbackDialogOpen} onOpenChange={setIsFeedbackDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Course Feedback</DialogTitle>
+            <DialogTitle>Unit Feedback</DialogTitle>
             <DialogDescription>
-              Share your thoughts on {feedbackCourse?.course_name}. Your feedback helps us improve.
+              Share your thoughts on <span className="font-semibold text-blue-600">Unit {feedbackCourse?.course_units?.find(u => u.id === feedbackUnitId)?.unit_number}: {feedbackCourse?.course_units?.find(u => u.id === feedbackUnitId)?.unit_name}</span>.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -467,7 +473,7 @@ export function ViewCourses() {
             <Button variant="outline" onClick={() => setIsFeedbackDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSubmitFeedback} disabled={submittingFeedback || !feedbackComment.trim()}>
+            <Button onClick={handleSubmitFeedback} disabled={submittingFeedback || !feedbackComment.trim() || !feedbackUnitId}>
               {submittingFeedback ? "Submitting..." : "Submit Feedback"}
             </Button>
           </DialogFooter>
