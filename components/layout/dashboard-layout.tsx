@@ -283,16 +283,23 @@ export function DashboardLayout({ children, currentPage, onPageChange, menuItems
               >
                 <button
                   className={cn(
-                    "flex items-center transition-all duration-200 rounded-lg overflow-hidden h-11",
+                    "cie-sidebar-item flex items-center transition-transform duration-200 rounded-lg overflow-hidden h-11",
                     sidebarCollapsed 
                       ? "lg:aspect-square lg:h-11 lg:w-11 lg:justify-center lg:mx-auto w-full p-3 px-4 mx-1" 
                       : "w-full p-3 px-4 mx-1",
                     item.disabled 
                       ? "text-gray-400 cursor-not-allowed opacity-50" 
                       : currentPage === item.id
-                        ? "bg-indigo-200 text-indigo-800 font-medium shadow-sm transform hover:scale-105 focus:scale-105"
-                        : "text-gray-800 hover:bg-blue-100 hover:text-indigo-800 dark:text-dark1 transform hover:scale-105 focus:scale-105"
+                        ? "font-medium shadow-sm transform hover:scale-105 focus:scale-105"
+                        : "transform hover:scale-105 focus:scale-105"
                   )}
+                  style={
+                    !item.disabled && currentPage === item.id
+                      ? { backgroundColor: 'rgba(231,90,45,0.12)', color: '#E75A2D' }
+                      : !item.disabled
+                        ? { color: theme === 'dark' ? '#9B98BC' : '#34305E' }
+                        : {}
+                  }
                   onClick={() => {
                     if (!item.disabled) {
                       onPageChange(item.id)
@@ -308,10 +315,15 @@ export function DashboardLayout({ children, currentPage, onPageChange, menuItems
                       sidebarCollapsed ? "lg:mr-0 mr-3" : "mr-3",
                       item.disabled 
                         ? "text-gray-400" 
-                        : currentPage === item.id 
-                          ? "text-blue-600" 
-                          : "text-gray-600 dark:text-dark1"
-                    )} 
+                        : ""
+                    )}
+                    style={
+                      !item.disabled && currentPage === item.id
+                        ? { color: '#E75A2D' }
+                        : !item.disabled
+                          ? { color: theme === 'dark' ? '#9B98BC' : '#34305E' }
+                          : {}
+                    }
                   />
                   <span className={cn(
                     "text-sm font-medium whitespace-nowrap truncate transition-all duration-300",
@@ -324,13 +336,20 @@ export function DashboardLayout({ children, currentPage, onPageChange, menuItems
             ))}
           </nav>
 
-          {/* Add keyframe animations */}
+          {/* Add keyframe animations + CIE flame hover */}
           <style jsx global>{`
             @keyframes fadeIn {
               to {
                 opacity: 1;
                 transform: translateX(0);
               }
+            }
+            .cie-sidebar-item:not(:disabled):not([disabled]):hover {
+              background-color: rgba(231,90,45,0.08) !important;
+              color: #E75A2D !important;
+            }
+            .cie-sidebar-item:not(:disabled):not([disabled]):hover svg {
+              color: #E75A2D !important;
             }
           `}</style>
 
@@ -343,11 +362,12 @@ export function DashboardLayout({ children, currentPage, onPageChange, menuItems
           <div className="hidden lg:block mx-3 py-2 border-t border-gray-200/60 dark:border-gray-800/60">
             <button
               className={cn(
-                "flex items-center text-gray-800 dark:text-dark1 hover:bg-blue-100 hover:text-indigo-800 transition-all duration-200 rounded-lg overflow-hidden transform hover:scale-105 focus:scale-105 h-11",
+                "cie-sidebar-item flex items-center dark:text-dark1 transition-transform duration-200 rounded-lg overflow-hidden transform hover:scale-105 focus:scale-105 h-11",
                 sidebarCollapsed 
                   ? "lg:aspect-square lg:h-11 lg:w-11 lg:justify-center lg:mx-auto w-full p-3 px-4" 
                   : "w-full p-2 px-3 mx-1"
               )}
+              style={{ color: theme === 'dark' ? '#9B98BC' : '#34305E' }}
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             >
               <ChevronLeft
