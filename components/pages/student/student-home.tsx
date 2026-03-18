@@ -131,7 +131,7 @@ export function StudentHome({ onPageChange }: StudentHomeProps) {
   return (
     <div className="space-y-6 min-h-screen">
       {/* Hero Section - match admin dashboard style */}
-      <div className="rounded-lg shadow-2xl p-4 min-h-[100px] flex flex-col md:flex-row items-center justify-between relative overflow-hidden mb-0" style={{ background: "linear-gradient(90deg, #023E8A 0%, #0077B6 40%, #00B4D8 80%, #b6e6fa 100%)" }}>
+      <div className="rounded-lg shadow-2xl p-4 min-h-[100px] flex flex-col md:flex-row items-center justify-between relative overflow-hidden mb-0" style={{ background: "linear-gradient(135deg, #34305E 0%, #3999C2 40%, #4899B8 55%, #5D9CB3 68%, #78A0B0 80%, #98A1A4 88%, #B78976 94%, #D07153 97%, #E75A2D 100%)" }}>
         <div className="flex-1 z-6">
           <span className="text-white text-2xl font-extrabold tracking-tight">CIE Student Portal</span>
           <h2 className="text-3xl md:text-3xl font-extrabold text-white mb-2 mt-2">Empower your learning journey!</h2>
@@ -143,7 +143,7 @@ export function StudentHome({ onPageChange }: StudentHomeProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
         {loading ? (
           Array.from({ length: 6 }).map((_, index) => (
-            <Card key={index} className="hover:shadow-lg transition-shadow animate-pulse" style={theme === 'light' ? { background: '#e3f0ff' } : {}}>
+            <Card key={index} className="hover:shadow-lg transition-shadow animate-pulse" style={{ background: 'rgba(57,153,194,0.15)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(57,153,194,0.25)', boxShadow: '0 4px 24px rgba(57,153,194,0.08)' }}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <div className="h-4 bg-gray-200 rounded w-20"></div>
                 <div className="h-4 w-4 bg-gray-200 rounded"></div>
@@ -156,7 +156,7 @@ export function StudentHome({ onPageChange }: StudentHomeProps) {
           ))
         ) : (
           stats.map((stat, index) => (
-            <Card key={index} className="hover:shadow-lg transition-shadow transform hover:scale-105 focus:scale-105 transition-transform duration-200" style={theme === 'light' ? { background: '#e3f0ff' } : {}}>
+            <Card key={index} className="hover:shadow-lg transition-shadow transform hover:scale-105 focus:scale-105 transition-transform duration-200" style={{ background: 'rgba(57,153,194,0.15)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(57,153,194,0.25)', boxShadow: '0 4px 24px rgba(57,153,194,0.08)' }}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
                 <stat.icon className={`h-4 w-4 ${stat.color}`} />
