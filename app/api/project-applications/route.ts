@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getUserById } from "@/lib/auth"
-import { UTApi } from "uploadthing/server";
+import { saveFile } from "@/lib/storage";
 
 export async function POST(request: NextRequest) {
   try {
@@ -83,15 +83,8 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Upload resume using Uploadthing
-    const utapi = new UTApi();
-    const response = await utapi.uploadFiles(resume);
-    if (response.error) {
-      throw new Error(response.error.message);
-    }
-
-    const resumeId = response.data.key;
-    const fileName = resume.name;
+    // Upload resume locally
+    const savedFile = await saveFile(resume, 'resumes');
 
     // Create project request with resume information
     const projectRequest = await prisma.projectRequest.create({
@@ -102,8 +95,8 @@ export async function POST(request: NextRequest) {
         request_date: new Date(),
         status: "PENDING",
         student_notes: student_notes || null,
-        resume_id: resumeId,
-        resume_path: 'Uploadthing', // Specify that it's using Uploadthing
+        resume_id: savedFile.key,
+        resume_path: 'local',
       },
       include: {
         project: true,
