@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
-import { Home, Users, User as UserIcon, MapPin, Calendar, FolderOpen, ClipboardCheck, Wrench, BookOpen, Settings, Award, Briefcase, BarChart3 } from "lucide-react"
+import { Home, Users, User as UserIcon, MapPin, Calendar, FolderOpen, ClipboardCheck, Wrench, BookOpen, Settings, Award, Briefcase, BarChart3, GraduationCap } from "lucide-react"
 import { FacultyHome } from "@/components/pages/faculty/faculty-home"
 import { LabComponentsManagement } from "@/components/pages/faculty/lab-components-management"
 import { LabComponentsRequest } from "@/components/pages/faculty/lab-components-request"
@@ -14,6 +14,7 @@ import { LocationBooking } from "@/components/pages/faculty/location-booking"
 import { UserProfile } from "@/components/common/user-profile"
 import { LibraryDashboard } from "@/components/pages/common/library-dashboard"
 import { CoordinatorDashboard } from "@/components/pages/faculty/coordinator-dashboard"
+import { ManagePrograms } from "@/components/pages/admin/manage-programs"
 import { useAuth } from "@/components/auth-provider"
 import FacultyOpportunity from '@/components/pages/faculty/faculty-opportunity';
 import FacultyFeedbacks from '@/components/pages/faculty/feedbacks';
@@ -54,6 +55,7 @@ export function FacultyDashboard() {
       { id: "locations", label: "Book Rooms", icon: MapPin },
 
       { id: "projects", label: "Projects", icon: FolderOpen },
+      { id: "programs", label: "Programs", icon: GraduationCap },
       { id: "lab-components", label: "Lab Components", icon: Wrench },
       { id: "library", label: "Library", icon: BookOpen },
       { id: "opportunities", label: "Opportunities", icon: Briefcase }, // Added
@@ -87,6 +89,8 @@ export function FacultyDashboard() {
         return <FacultyCalendar />
       case "projects":
         return <ProjectManagement />
+      case "programs":
+        return <ManagePrograms />
       case "attendance":
         return <AttendanceManagement />
       case "lab-components":

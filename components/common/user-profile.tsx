@@ -136,15 +136,22 @@ export function UserProfile() {
 
   // Load existing resume info on component mount
   React.useEffect(() => {
-    if (user?.profileData?.resume_id) {
+    if (user?.profileData?.resume_id && user.id) {
       setResumeName(user.profileData.resume_id);
+      let baseUrl = "";
+      
       if (user.profileData.resume_path === 'Uploadthing') {
-        setResumeUrl(`https://utfs.io/f/${user.profileData.resume_id}`);
-      } else if (user.profileData.resume_path === 'local') {
-        setResumeUrl(`/api/files/resumes/${user.profileData.resume_id}`);
+        baseUrl = `https://utfs.io/f/${user.profileData.resume_id}`;
       } else {
-        const pathPrefix = user.role === 'STUDENT' ? '/Resume/' : '/resumes/';
-        setResumeUrl(`${pathPrefix}${user.profileData.resume_id}`);
+        // Fallback or explicit local/resumes path
+        baseUrl = `/api/files/resumes/${user.profileData.resume_id}`;
+      }
+      
+      // Add userId for authentication if it's our direct API
+      if (baseUrl.startsWith('/api/files/')) {
+        setResumeUrl(`${baseUrl}?userId=${user.id}`);
+      } else {
+        setResumeUrl(baseUrl);
       }
     }
   }, [user]);
@@ -170,7 +177,11 @@ export function UserProfile() {
       if (response.ok) {
         const data = await response.json();
         setResumeName(data.resumeId);
-        setResumeUrl(data.resumeUrl);
+        // Correctly append userId to the returned URL for authentication
+        const finalUrl = data.resumeUrl.includes('?') 
+          ? `${data.resumeUrl}&userId=${user.id}` 
+          : `${data.resumeUrl}?userId=${user.id}`;
+        setResumeUrl(finalUrl);
         toast({
           title: "Success",
           description: "Resume uploaded successfully",

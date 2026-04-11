@@ -85,6 +85,7 @@ model Student {
   user                     User                     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   opportunity_applications OpportunityApplication[]
   course_feedbacks         CourseFeedback[]
+  program_enrollments      ProgramEnrollment[]
 
   @@map("students")
 }
@@ -131,13 +132,16 @@ model CourseUnit {
 }
 
 model Enrollment {
-  id          String   @id @default(cuid())
-  course_id   String
-  enrolled_at DateTime @default(now())
-  student_id  String
-  grade       String?
-  course      Course   @relation(fields: [course_id], references: [id])
-  student     Student  @relation(fields: [student_id], references: [id])
+  id            String            @id @default(cuid())
+  course_id     String
+  enrolled_at   DateTime          @default(now())
+  student_id    String
+  grade         String?
+  status        ApplicationStatus @default(PENDING)
+  student_notes String?
+  faculty_notes String?
+  course        Course            @relation(fields: [course_id], references: [id])
+  student       Student           @relation(fields: [student_id], references: [id])
 
   @@unique([student_id, course_id])
   @@map("enrollments")
@@ -643,4 +647,77 @@ model AISummary {
   feedbacks  CourseFeedback[] @relation("SummaryToFeedback")
 
   @@map("ai_summaries")
+}
+
+// Programs Module
+enum ProgramStatus {
+  active
+  archived
+}
+
+enum YearStatus {
+  upcoming
+  ongoing
+  completed
+}
+
+model BaseProgram {
+  id          String        @id @default(cuid())
+  name        String        @unique
+  description String
+  status      ProgramStatus @default(active)
+  created_at  DateTime      @default(now())
+  created_by  String
+  years       ProgramYear[]
+
+  @@map("base_programs")
+}
+
+model ProgramYear {
+  id          String              @id @default(cuid())
+  program_id  String
+  year        Int
+  label       String
+  description String?
+  start_date  DateTime
+  end_date    DateTime
+  status      YearStatus          @default(upcoming)
+  created_at  DateTime            @default(now())
+  created_by  String
+  program     BaseProgram         @relation(fields: [program_id], references: [id], onDelete: Cascade)
+  enrollments ProgramEnrollment[]
+  stages      ProgramStage[]
+
+  @@unique([program_id, year])
+  @@map("program_years")
+}
+
+model ProgramStage {
+  id          String      @id @default(cuid())
+  year_id     String
+  program_id  String      // Grandparent ID for easy access
+  name        String
+  description String?
+  order       Int
+  start_date  DateTime?
+  end_date    DateTime?
+  status      String      @default("upcoming") // matches StageStatus type
+  created_at  DateTime    @default(now())
+  created_by  String
+  year        ProgramYear @relation(fields: [year_id], references: [id], onDelete: Cascade)
+
+  @@map("program_stages")
+}
+
+
+model ProgramEnrollment {
+  id          String      @id @default(cuid())
+  year_id     String
+  student_id  String
+  enrolled_at DateTime    @default(now())
+  year        ProgramYear @relation(fields: [year_id], references: [id], onDelete: Cascade)
+  student     Student     @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@unique([year_id, student_id])
+  @@map("program_enrollments")
 }

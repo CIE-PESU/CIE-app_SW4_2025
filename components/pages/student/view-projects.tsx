@@ -213,8 +213,20 @@ export function ViewProjects() {
 
       if (studentResponse.ok) {
         const studentData = await studentResponse.json()
+        console.log('Fetched student data:', studentData)
         if (studentData.students && studentData.students.length > 0) {
-          setStudent(studentData.students[0])
+          // Find the student record that matches the current user's ID
+          const currentStudent = studentData.students.find((s: any) => s.user_id === user.id)
+          if (currentStudent) {
+            console.log('Found current student profile:', currentStudent)
+            setStudent(currentStudent)
+          } else {
+            console.warn('Student record not found for user ID:', user.id)
+            // Fallback to first student if only one was returned (API filtered)
+            if (studentData.students.length === 1) {
+              setStudent(studentData.students[0])
+            }
+          }
         }
       }
     } catch (error) {
@@ -609,7 +621,7 @@ export function ViewProjects() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Projects</h1>
+          <h1 className="admin-page-title">Projects</h1>
         </div>
         <div className="flex space-x-2">
           <Button onClick={fetchData} variant="outline">

@@ -476,7 +476,7 @@ export function LibraryRequest() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Library</h1>
+          <h1 className="admin-page-title">Library</h1>
         </div>
         <Button onClick={fetchData} variant="outline">
           <RefreshCw className="h-4 w-4 mr-2" />

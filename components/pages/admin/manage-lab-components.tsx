@@ -19,7 +19,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Package, Trash2, RefreshCw, Edit, ChevronRight, ChevronLeft, Info, Receipt, History, Image ,Search, Filter, Settings } from "lucide-react"
+import { Plus, Package, Trash2, RefreshCw, Edit, ChevronRight, ChevronLeft, Info, Receipt, History, Image, Search, Filter, Settings } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/components/auth-provider"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -117,7 +117,7 @@ export function ManageLabComponents() {
   const [trackIndividual, setTrackIndividual] = useState(false)
   const [individualItems, setIndividualItems] = useState<IndividualItem[]>([])
   const [individualItemErrors, setIndividualItemErrors] = useState<Record<string, string>>({})
-  
+
   // Specification table state
   const [specificationRows, setSpecificationRows] = useState<SpecificationRow[]>([
     { id: '1', attribute: '', value: '' },
@@ -148,7 +148,7 @@ export function ManageLabComponents() {
   // Add form validation state
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
-  
+
   // AI analysis state
   const [isAnalyzing, setIsAnalyzing] = useState(false)
 
@@ -187,11 +187,11 @@ export function ManageLabComponents() {
     }
     setSpecificationRows(prev => [...prev, newRow])
   }
-  
+
   const removeSpecificationRow = (id: string) => {
     setSpecificationRows(prev => prev.filter(row => row.id !== id))
   }
-  
+
   const updateSpecificationRow = (id: string, field: 'attribute' | 'value', value: string) => {
     setSpecificationRows(prev =>
       prev.map(row =>
@@ -199,7 +199,7 @@ export function ManageLabComponents() {
       )
     )
   }
-  
+
   // Individual item management functions
   const addIndividualItem = () => {
     const newItem: IndividualItem = {
@@ -219,8 +219,8 @@ export function ManageLabComponents() {
   }
 
   const updateIndividualItem = (id: string, unique_id: string) => {
-    setIndividualItems(prev => 
-      prev.map(item => 
+    setIndividualItems(prev =>
+      prev.map(item =>
         item.id === id ? { ...item, unique_id } : item
       )
     )
@@ -361,14 +361,14 @@ export function ManageLabComponents() {
 
   const filteredComponents = components.filter(
     (component) => {
-      const matchesSearch = 
+      const matchesSearch =
         (component.component_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
         (component.component_category?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
         (component.component_location?.toLowerCase() || '').includes(searchTerm.toLowerCase())
-      
-      const matchesCategory = selectedCategory === "all" || 
+
+      const matchesCategory = selectedCategory === "all" ||
         (component.component_category?.toLowerCase() || '') === selectedCategory.toLowerCase()
-      
+
       return matchesSearch && matchesCategory
     }
   )
@@ -379,119 +379,119 @@ export function ManageLabComponents() {
       console.log('Already submitting, ignoring click')
       return
     }
-    
+
     setIsSubmitting(true)
     console.log('Starting component submission...')
-    
-    try {
-    // Validate form before proceeding
-    if (!validateForm()) {
-      toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields correctly",
-        variant: "destructive",
-      })
-      return
-    }
 
-    // If Tag ID is empty, check for duplicate
-    if (!newComponent.component_tag_id) {
-      const formattedCategory = toTitleCase(newComponent.component_category)
-      const formattedLocation = formatLocation(newComponent.component_location)
-      const existing = components.find(
-        c =>
-          (c.component_name?.trim().toLowerCase() || '') === (newComponent.component_name?.trim().toLowerCase() || '') &&
-          (c.component_category?.trim().toLowerCase() || '') === (formattedCategory?.trim().toLowerCase() || '') &&
-          (c.component_location?.trim().toLowerCase() || '') === (formattedLocation?.trim().toLowerCase() || '')
-      )
-      if (existing) {
-        if (!window.confirm("This item already exists. The quantity you add will be added to the existing one. Continue?")) {
+    try {
+      // Validate form before proceeding
+      if (!validateForm()) {
+        toast({
+          title: "Validation Error",
+          description: "Please fill in all required fields correctly",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // If Tag ID is empty, check for duplicate
+      if (!newComponent.component_tag_id) {
+        const formattedCategory = toTitleCase(newComponent.component_category)
+        const formattedLocation = formatLocation(newComponent.component_location)
+        const existing = components.find(
+          c =>
+            (c.component_name?.trim().toLowerCase() || '') === (newComponent.component_name?.trim().toLowerCase() || '') &&
+            (c.component_category?.trim().toLowerCase() || '') === (formattedCategory?.trim().toLowerCase() || '') &&
+            (c.component_location?.trim().toLowerCase() || '') === (formattedLocation?.trim().toLowerCase() || '')
+        )
+        if (existing) {
+          if (!window.confirm("This item already exists. The quantity you add will be added to the existing one. Continue?")) {
+            return
+          }
+          // Simulate updating the quantity in the frontend (no backend yet)
+          setComponents(prev =>
+            prev.map(c =>
+              c.id === existing.id
+                ? { ...c, component_quantity: c.component_quantity + newComponent.component_quantity, availableQuantity: (c.availableQuantity || 0) + newComponent.component_quantity }
+                : c
+            )
+          )
+          toast({
+            title: "Quantity Updated",
+            description: "The quantity has been added to the existing component.",
+          })
+          // Reset form
+          resetForm()
+          setIsAddDialogOpen(false)
           return
         }
-        // Simulate updating the quantity in the frontend (no backend yet)
-        setComponents(prev =>
-          prev.map(c =>
-            c.id === existing.id
-              ? { ...c, component_quantity: c.component_quantity + newComponent.component_quantity, availableQuantity: (c.availableQuantity || 0) + newComponent.component_quantity }
-              : c
-          )
-        )
-        toast({
-          title: "Quantity Updated",
-          description: "The quantity has been added to the existing component.",
-        })
-        // Reset form
-        resetForm()
-        setIsAddDialogOpen(false)
-        return
       }
-    }
 
-    let frontImageUrl = undefined
-    let backImageUrl = undefined
+      let frontImageUrl = undefined
+      let backImageUrl = undefined
 
-    // Upload front image
-    if (frontImageFile) {
-      const formData = new FormData()
-      formData.append('image', frontImageFile)
-      const uploadRes = await fetch('/api/lab-components/upload', {
-        method: 'POST',
-        body: formData,
-      })
-      if (uploadRes.ok) {
-        const data = await uploadRes.json()
-        frontImageUrl = data.imageUrl.split('/').pop() // Get file name from URL
-      } else {
-        toast({
-          title: "Error",
-          description: "Front image upload failed",
-          variant: "destructive",
+      // Upload front image
+      if (frontImageFile) {
+        const formData = new FormData()
+        formData.append('image', frontImageFile)
+        const uploadRes = await fetch('/api/lab-components/upload', {
+          method: 'POST',
+          body: formData,
         })
-        return
+        if (uploadRes.ok) {
+          const data = await uploadRes.json()
+          frontImageUrl = data.imageUrl.split('/').pop() // Get file name from URL
+        } else {
+          toast({
+            title: "Error",
+            description: "Front image upload failed",
+            variant: "destructive",
+          })
+          return
+        }
       }
-    }
 
-    // Upload back image
-    if (backImageFile) {
-      const formData = new FormData()
-      formData.append('image', backImageFile)
-      const uploadRes = await fetch('/api/lab-components/upload', {
-        method: 'POST',
-        body: formData,
-      })
-      if (uploadRes.ok) {
-        const data = await uploadRes.json()
-        backImageUrl = data.imageUrl.split('/').pop() // Get file name from URL
-      } else {
-        toast({
-          title: "Error",
-          description: "Back image upload failed",
-          variant: "destructive",
+      // Upload back image
+      if (backImageFile) {
+        const formData = new FormData()
+        formData.append('image', backImageFile)
+        const uploadRes = await fetch('/api/lab-components/upload', {
+          method: 'POST',
+          body: formData,
         })
-        return
+        if (uploadRes.ok) {
+          const data = await uploadRes.json()
+          backImageUrl = data.imageUrl.split('/').pop() // Get file name from URL
+        } else {
+          toast({
+            title: "Error",
+            description: "Back image upload failed",
+            variant: "destructive",
+          })
+          return
+        }
       }
-    }
 
-    // Format category and location before sending
-    const formattedCategory = toTitleCase(newComponent.component_category)
-    const formattedLocation = formatLocation(newComponent.component_location)
+      // Format category and location before sending
+      const formattedCategory = toTitleCase(newComponent.component_category)
+      const formattedLocation = formatLocation(newComponent.component_location)
 
-    // Prepare individual items for API payload
-    let finalQuantity = newComponent.component_quantity
-    let individualItemsPayload: IndividualItem[] = []
-    
-    if (trackIndividual) {
-      const validItems = individualItems.filter(item => item.unique_id.trim())
-      finalQuantity = validItems.length
-      individualItemsPayload = validItems
-    }
+      // Prepare individual items for API payload
+      let finalQuantity = newComponent.component_quantity
+      let individualItemsPayload: IndividualItem[] = []
 
-    console.log("Frontend - handleAddComponent - user object:", user)
-    console.log("Frontend - handleAddComponent - user.id:", user?.id)
-    console.log("Frontend - handleAddComponent - user.name:", user?.name)
-    console.log("Frontend - handleAddComponent - trackIndividual:", trackIndividual)
-    console.log("Frontend - handleAddComponent - finalQuantity:", finalQuantity)
-    console.log("Frontend - handleAddComponent - individualItemsPayload:", individualItemsPayload)
+      if (trackIndividual) {
+        const validItems = individualItems.filter(item => item.unique_id.trim())
+        finalQuantity = validItems.length
+        individualItemsPayload = validItems
+      }
+
+      console.log("Frontend - handleAddComponent - user object:", user)
+      console.log("Frontend - handleAddComponent - user.id:", user?.id)
+      console.log("Frontend - handleAddComponent - user.name:", user?.name)
+      console.log("Frontend - handleAddComponent - trackIndividual:", trackIndividual)
+      console.log("Frontend - handleAddComponent - finalQuantity:", finalQuantity)
+      console.log("Frontend - handleAddComponent - individualItemsPayload:", individualItemsPayload)
 
       const response = await fetch("/api/lab-components", {
         method: "POST",
@@ -516,7 +516,7 @@ export function ManageLabComponents() {
       if (response.ok) {
         const data = await response.json()
         setComponents((prev) => [...prev, data.component])
-        
+
         // Reset form
         resetForm()
         setIsAddDialogOpen(false)
@@ -610,7 +610,7 @@ export function ManageLabComponents() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ category: newCategory.trim() })
       })
-      
+
       if (res.ok) {
         const data = await res.json()
         const formattedCategory = data.category
@@ -621,18 +621,18 @@ export function ManageLabComponents() {
         toast({ title: "Category added!", description: "New category added successfully." })
       } else {
         const error = await res.json()
-        toast({ 
-          title: "Error", 
-          description: error.error || "Failed to add category.", 
-          variant: "destructive" 
+        toast({
+          title: "Error",
+          description: error.error || "Failed to add category.",
+          variant: "destructive"
         })
       }
     } catch (error) {
       console.error("Error adding category:", error)
-      toast({ 
-        title: "Error", 
-        description: "Failed to add category.", 
-        variant: "destructive" 
+      toast({
+        title: "Error",
+        description: "Failed to add category.",
+        variant: "destructive"
       })
     } finally {
       setIsSavingCategory(false)
@@ -644,35 +644,35 @@ export function ManageLabComponents() {
       const res = await fetch(`/api/lab-components/categories?category=${encodeURIComponent(category)}`, {
         method: "DELETE"
       })
-      
+
       if (res.ok) {
         setCategoryOptions((prev) => prev.filter(cat => cat !== category))
-        toast({ 
-          title: "Category removed!", 
-          description: "Category removed successfully." 
+        toast({
+          title: "Category removed!",
+          description: "Category removed successfully."
         })
       } else {
         const error = await res.json()
         if (error.componentsUsing) {
-          toast({ 
-            title: "Cannot delete category", 
-            description: `Category is being used by ${error.count} component(s). Remove components first.`, 
-            variant: "destructive" 
+          toast({
+            title: "Cannot delete category",
+            description: `Category is being used by ${error.count} component(s). Remove components first.`,
+            variant: "destructive"
           })
         } else {
-          toast({ 
-            title: "Error", 
-            description: error.error || "Failed to delete category.", 
-            variant: "destructive" 
+          toast({
+            title: "Error",
+            description: error.error || "Failed to delete category.",
+            variant: "destructive"
           })
         }
       }
     } catch (error) {
       console.error("Error deleting category:", error)
-      toast({ 
-        title: "Error", 
-        description: "Failed to delete category.", 
-        variant: "destructive" 
+      toast({
+        title: "Error",
+        description: "Failed to delete category.",
+        variant: "destructive"
       })
     } finally {
       setIsDeleteCategoryDialogOpen(false)
@@ -689,7 +689,7 @@ export function ManageLabComponents() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ location: newLocation.trim() })
       })
-      
+
       if (res.ok) {
         const data = await res.json()
         const formattedLocation = data.location
@@ -700,18 +700,18 @@ export function ManageLabComponents() {
         toast({ title: "Location added!", description: "New location added successfully." })
       } else {
         const error = await res.json()
-        toast({ 
-          title: "Error", 
-          description: error.error || "Failed to add location.", 
-          variant: "destructive" 
+        toast({
+          title: "Error",
+          description: error.error || "Failed to add location.",
+          variant: "destructive"
         })
       }
     } catch (error) {
       console.error("Error adding location:", error)
-      toast({ 
-        title: "Error", 
-        description: "Failed to add location.", 
-        variant: "destructive" 
+      toast({
+        title: "Error",
+        description: "Failed to add location.",
+        variant: "destructive"
       })
     } finally {
       setIsSavingLocation(false)
@@ -723,35 +723,35 @@ export function ManageLabComponents() {
       const res = await fetch(`/api/lab-components/locations?location=${encodeURIComponent(location)}`, {
         method: "DELETE"
       })
-      
+
       if (res.ok) {
         setLocationOptions((prev) => prev.filter(loc => loc !== location))
-        toast({ 
-          title: "Location removed!", 
-          description: "Location removed successfully." 
+        toast({
+          title: "Location removed!",
+          description: "Location removed successfully."
         })
       } else {
         const error = await res.json()
         if (error.componentsUsing) {
-          toast({ 
-            title: "Cannot delete location", 
-            description: `Location is being used by ${error.count} component(s). Remove components first.`, 
-            variant: "destructive" 
+          toast({
+            title: "Cannot delete location",
+            description: `Location is being used by ${error.count} component(s). Remove components first.`,
+            variant: "destructive"
           })
         } else {
-          toast({ 
-            title: "Error", 
-            description: error.error || "Failed to delete location.", 
-            variant: "destructive" 
+          toast({
+            title: "Error",
+            description: error.error || "Failed to delete location.",
+            variant: "destructive"
           })
         }
       }
     } catch (error) {
       console.error("Error deleting location:", error)
-      toast({ 
-        title: "Error", 
-        description: "Failed to delete location.", 
-        variant: "destructive" 
+      toast({
+        title: "Error",
+        description: "Failed to delete location.",
+        variant: "destructive"
       })
     } finally {
       setIsDeleteLocationDialogOpen(false)
@@ -796,7 +796,7 @@ export function ManageLabComponents() {
         // Check for duplicate unique IDs
         const uniqueIds = individualItems.map(item => item.unique_id.trim()).filter(id => id)
         const duplicateIds = uniqueIds.filter((id, index) => uniqueIds.indexOf(id) !== index)
-        
+
         if (duplicateIds.length > 0) {
           individualItems.forEach(item => {
             if (duplicateIds.includes(item.unique_id.trim())) {
@@ -830,7 +830,7 @@ export function ManageLabComponents() {
 
     // Purchase details validation (optional but if one is filled, others should be too)
     const hasPurchaseDetails = newComponent.invoice_number || newComponent.purchased_from || newComponent.purchase_date || newComponent.purchase_value
-    
+
     if (hasPurchaseDetails) {
       if (!newComponent.invoice_number?.trim()) {
         errors.invoice_number = "Invoice number is required when purchase details are provided"
@@ -875,18 +875,18 @@ export function ManageLabComponents() {
     // Individual items validation
     let individualItemsValid = true
     if (trackIndividual) {
-      individualItemsValid = individualItems.length > 0 && 
+      individualItemsValid = individualItems.length > 0 &&
         individualItems.every(item => item.unique_id.trim()) &&
         // Check for duplicate unique IDs
         new Set(individualItems.map(item => item.unique_id.trim()).filter(id => id)).size === individualItems.filter(item => item.unique_id.trim()).length
     }
 
     const isValid = basicFieldsValid && quantityValid && individualItemsValid
-    
+
     // Debug log to help troubleshoot
     console.log('Form validation check:', {
       name: !!newComponent.component_name?.trim(),
-      description: !!newComponent.component_description?.trim(), 
+      description: !!newComponent.component_description?.trim(),
       category: !!newComponent.component_category?.trim(),
       location: !!newComponent.component_location?.trim(),
       quantity: quantityValid,
@@ -898,7 +898,7 @@ export function ManageLabComponents() {
       individualItemsValid,
       isValid
     })
-    
+
     return isValid
   }, [
     newComponent.component_name,
@@ -914,7 +914,7 @@ export function ManageLabComponents() {
 
   const handleEditComponent = async () => {
     if (!editingComponent) return
-    
+
     if (!editingComponent.component_name || !editingComponent.component_category || !editingComponent.component_location) {
       toast({
         title: "Error",
@@ -991,10 +991,10 @@ export function ManageLabComponents() {
 
       if (response.ok) {
         const data = await response.json()
-        setComponents((prev) => 
+        setComponents((prev) =>
           prev.map((c) => (c.id === editingComponent.id ? data.component : c))
         )
-        
+
         // Reset form
         setEditingComponent(null)
         setFrontImageFile(null)
@@ -1039,7 +1039,7 @@ export function ManageLabComponents() {
     }
 
     setIsAnalyzing(true)
-    
+
     try {
       const formData = new FormData()
       formData.append('frontImage', frontImageFile)
@@ -1056,7 +1056,7 @@ export function ManageLabComponents() {
       }
 
       const data = await response.json()
-      
+
       if (data.status === 'error') {
         // Handle validation errors (wrong item type)
         toast({
@@ -1066,7 +1066,7 @@ export function ManageLabComponents() {
         })
         return
       }
-      
+
       if (data.status === 'success' && data.result) {
         setNewComponent(prev => ({
           ...prev,
@@ -1074,13 +1074,13 @@ export function ManageLabComponents() {
           component_description: data.result.description,
           component_specification: data.result.specifications
         }))
-        
+
         // Parse AI specifications into table format if possible
         if (data.result.specifications) {
           const parsedSpecs = parseSpecificationsToTable(data.result.specifications)
           setSpecificationRows(parsedSpecs)
         }
-        
+
         toast({
           title: "AI Analysis Complete",
           description: "Component name, description and specifications have been generated successfully",
@@ -1088,7 +1088,7 @@ export function ManageLabComponents() {
       } else {
         throw new Error(data.error || 'AI analysis failed')
       }
-      
+
     } catch (error) {
       console.error('AI Analysis Error:', error)
       toast({
@@ -1105,7 +1105,7 @@ export function ManageLabComponents() {
   const parseSpecificationsToTable = (specs: string): SpecificationRow[] => {
     const rows: SpecificationRow[] = []
     let idCounter = 1
-    
+
     // Check if specs are in pipe-separated format (from new AI)
     if (specs.includes('|')) {
       const attributes = specs.split('|').map(attr => attr.trim()).filter(attr => attr)
@@ -1113,7 +1113,7 @@ export function ManageLabComponents() {
         // Check if the attribute already contains a value (has colon or equals)
         const colonIndex = attribute.indexOf(':')
         const equalsIndex = attribute.indexOf('=')
-        
+
         if (colonIndex > 0) {
           // Format: "Attribute: Value"
           rows.push({
@@ -1142,7 +1142,7 @@ export function ManageLabComponents() {
             if (attrLower.includes('power')) return 'e.g., 20mA';
             return 'Please specify';
           };
-          
+
           rows.push({
             id: (idCounter++).toString(),
             attribute: attribute,
@@ -1153,7 +1153,7 @@ export function ManageLabComponents() {
     } else {
       // Legacy format - split by common delimiters and parse
       const lines = specs.split(/[.\n;]/).filter(line => line.trim())
-      
+
       lines.forEach(line => {
         const trimmedLine = line.trim()
         if (trimmedLine) {
@@ -1163,7 +1163,7 @@ export function ManageLabComponents() {
             /([^=]+)=\s*(.+)/,  // "Attribute = Value"
             /(\w+(?:\s+\w+)*)\s+(.+)/  // "Attribute Value"
           ]
-          
+
           for (const pattern of patterns) {
             const match = trimmedLine.match(pattern)
             if (match) {
@@ -1177,7 +1177,7 @@ export function ManageLabComponents() {
           }
         }
       })
-      
+
       // If no patterns matched, add the whole spec as a single row
       if (rows.length === 0) {
         rows.push({
@@ -1187,7 +1187,7 @@ export function ManageLabComponents() {
         })
       }
     }
-    
+
     // Sort specifications by importance (most important first)
     const getLabSpecPriority = (attribute: string): number => {
       const attr = attribute.toLowerCase()
@@ -1203,16 +1203,16 @@ export function ManageLabComponents() {
       if (attr.includes('weight') || attr.includes('mass')) return 2
       return 1 // Default priority for other specs
     }
-    
+
     // Sort rows with actual content by priority
     const filledRows = rows.filter(row => row.attribute.trim() || row.value.trim())
     const emptyRows = rows.filter(row => !row.attribute.trim() && !row.value.trim())
-    
+
     filledRows.sort((a, b) => getLabSpecPriority(b.attribute) - getLabSpecPriority(a.attribute))
-    
+
     // Combine sorted filled rows with empty rows
     const sortedRows = [...filledRows, ...emptyRows]
-    
+
     // Always ensure we have at least 3 rows, but allow AI to add more
     while (sortedRows.length < 3) {
       sortedRows.push({
@@ -1221,10 +1221,10 @@ export function ManageLabComponents() {
         value: ''
       })
     }
-    
+
     return sortedRows
   }
-  
+
   // Convert specification rows to string format for API
   const convertSpecificationsToString = (): string => {
     return specificationRows
@@ -1232,7 +1232,7 @@ export function ManageLabComponents() {
       .map(row => `${row.attribute}: ${row.value}`)
       .join('. ')
   }
-  
+
   // Reset form and errors
   const resetForm = () => {
     setNewComponent({
@@ -1276,18 +1276,18 @@ export function ManageLabComponents() {
   // Bulk upload functions
   const downloadSampleCSV = async (e: React.MouseEvent) => {
     e.preventDefault()
-    
+
     try {
       // Fetch the actual sample CSV from the API
       const response = await fetch('/api/lab-components/sample-csv')
-      
+
       if (!response.ok) {
         throw new Error('Failed to download sample CSV')
       }
-      
+
       // Get the CSV content as blob
       const blob = await response.blob()
-      
+
       // Create download link
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -1298,7 +1298,7 @@ export function ManageLabComponents() {
       a.click()
       document.body.removeChild(a)
       window.URL.revokeObjectURL(url)
-      
+
       toast({
         title: "Success",
         description: "Sample CSV downloaded successfully",
@@ -1315,13 +1315,13 @@ export function ManageLabComponents() {
 
   const handleBulkUpload = async () => {
     if (!bulkUploadFile) return
-    
+
     setIsBulkUploading(true)
-    
+
     try {
       const formData = new FormData()
       formData.append('csv', bulkUploadFile)
-      
+
       const response = await fetch('/api/lab-components/bulk-upload', {
         method: 'POST',
         headers: {
@@ -1329,22 +1329,22 @@ export function ManageLabComponents() {
         },
         body: formData,
       })
-      
+
       const result = await response.json()
-      
+
       if (response.ok) {
         toast({
           title: "Success",
           description: `Bulk upload completed! Processed: ${result.processed}, Errors: ${result.errors}`,
         })
-        
+
         if (result.errors > 0) {
           console.log('Upload errors:', result.error_details)
         }
-        
+
         // Refresh components list
         fetchComponents()
-        
+
         // Close dialog and reset
         setIsBulkUploadDialogOpen(false)
         setBulkUploadFile(null)
@@ -1399,10 +1399,10 @@ export function ManageLabComponents() {
               <DialogHeader>
                 <DialogTitle>Bulk Upload Lab Components</DialogTitle>
                 <DialogDescription>
-                  Upload a CSV file to add multiple lab components at once. 
+                  Upload a CSV file to add multiple lab components at once.
                   <br />
-                  <a 
-                    href="#" 
+                  <a
+                    href="#"
                     onClick={downloadSampleCSV}
                     className="text-blue-600 hover:underline mt-2 inline-block"
                   >
@@ -1472,235 +1472,235 @@ export function ManageLabComponents() {
                         <Label htmlFor="name">Component Name *</Label>
                         <Input id="name" value={newComponent.component_name} onChange={e => setNewComponent(prev => ({ ...prev, component_name: e.target.value }))} className={`mt-1 ${formErrors.component_name ? 'border-red-500' : ''}`} />
                         {formErrors.component_name && <p className="text-red-500 text-xs mt-1">{formErrors.component_name}</p>}
-                  </div>
+                      </div>
                       <div className="col-span-1">
                         <Label htmlFor="tagId">Tag ID (optional)</Label>
                         <Input id="tagId" value={newComponent.component_tag_id} onChange={e => setNewComponent(prev => ({ ...prev, component_tag_id: e.target.value }))} className="mt-1" />
-                  </div>
-                </div>
-                  </div>
-                    <div className="flex gap-3 items-end">
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="location">Location *</Label>
-                          <div className="flex space-x-1">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setShowAddLocation(true)}
-                              className="h-6 w-6 p-0"
-                              title="Add location"
-                              aria-label="Add location"
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                            {newComponent.component_location && (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setLocationToDelete(newComponent.component_location)
-                                  setIsDeleteLocationDialogOpen(true)
-                                }}
-                                className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
-                                title="Delete location"
-                                aria-label="Delete location"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                        {showAddLocation ? (
-                          <div ref={locationInputRef} className="flex gap-2 mt-1">
-                            <Input
-                              placeholder="Enter location (e.g., Lab A, Storage Room)"
-                              value={newLocation}
-                              onChange={(e) => setNewLocation(e.target.value)}
-                              className="flex-1"
-                            />
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={handleAddLocation}
-                              disabled={!newLocation.trim() || isSavingLocation}
-                            >
-                              {isSavingLocation ? "Adding..." : "Add"}
-                            </Button>
-                          </div>
-                        ) : (
-                          <Select value={newComponent.component_location} onValueChange={value => setNewComponent(prev => ({ ...prev, component_location: value }))}>
-                            <SelectTrigger className={`mt-1 ${formErrors.component_location ? 'border-red-500' : ''}`}><SelectValue placeholder="Select Location
-                            " /></SelectTrigger>
-                            <SelectContent>
-                              {locationOptions.map(location => (
-                                <SelectItem key={location} value={location}>{location}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                        {formErrors.component_location && <p className="text-red-500 text-xs mt-1">{formErrors.component_location}</p>}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="category">Category *</Label>
-                          <div className="flex space-x-1">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setShowAddCategory(true)}
-                              className="h-6 w-6 p-0"
-                              title="Add category"
-                              aria-label="Add category"
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                            {newComponent.component_category && (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setCategoryToDelete(newComponent.component_category)
-                                  setIsDeleteCategoryDialogOpen(true)
-                                }}
-                                className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
-                                title="Delete category"
-                                aria-label="Delete category"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                        {showAddCategory ? (
-                          <div ref={categoryInputRef} className="flex gap-2 mt-1">
-                            <Input
-                              placeholder="Enter category (e.g., Electrical, Mechanical)"
-                              value={newCategory}
-                              onChange={(e) => setNewCategory(e.target.value)}
-                              className="flex-1"
-                            />
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={handleAddCategory}
-                              disabled={!newCategory.trim() || isSavingCategory}
-                            >
-                              {isSavingCategory ? "Adding..." : "Add"}
-                            </Button>
-                          </div>
-                        ) : (
-                          <Select value={newComponent.component_category} onValueChange={value => setNewComponent(prev => ({ ...prev, component_category: value }))}>
-                            <SelectTrigger className={`mt-1 ${formErrors.component_category ? 'border-red-500' : ''}`}><SelectValue placeholder="Select category" /></SelectTrigger>
-                            <SelectContent>
-                              {categoryOptions.map(category => (
-                                <SelectItem key={category} value={category}>{category}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                        {formErrors.component_category && <p className="text-red-500 text-xs mt-1">{formErrors.component_category}</p>}
-                      </div>
-                      <div className="w-20">
-                        <Label htmlFor="quantity">Quantity *</Label>
-                        <Input 
-                          id="quantity" 
-                          type="number" 
-                          value={newComponent.component_quantity} 
-                          onChange={e => setNewComponent(prev => ({ ...prev, component_quantity: Number.parseInt(e.target.value) }))} 
-                          min="1" 
-                          disabled={trackIndividual}
-                          className={`mt-1 ${formErrors.component_quantity ? 'border-red-500' : ''}`} 
-                        />
-                        {formErrors.component_quantity && <p className="text-red-500 text-xs mt-1">{formErrors.component_quantity}</p>}
                       </div>
                     </div>
-                    
-                    {/* Individual Tracking Toggle */}
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        id="track-individual"
-                        checked={trackIndividual}
-                        onCheckedChange={setTrackIndividual}
-                      />
-                      <Label htmlFor="track-individual" className="text-sm font-medium">
-                        Track Individual Items
-                      </Label>
-                    </div>
-                    
-                    {/* Individual Items Section */}
-                    {trackIndividual && (
-                      <div className="space-y-2 border rounded-lg p-2 bg-gray-50">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-sm font-medium">Individual Items</Label>
+                  </div>
+                  <div className="flex gap-3 items-end">
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="location">Location *</Label>
+                        <div className="flex space-x-1">
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={addIndividualItem}
-                            className="h-6 text-xs"
+                            onClick={() => setShowAddLocation(true)}
+                            className="h-6 w-6 p-0"
+                            title="Add location"
+                            aria-label="Add location"
                           >
-                            <Plus className="h-3 w-3 mr-1" />
-                            Add Item
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                          {newComponent.component_location && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setLocationToDelete(newComponent.component_location)
+                                setIsDeleteLocationDialogOpen(true)
+                              }}
+                              className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
+                              title="Delete location"
+                              aria-label="Delete location"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                      {showAddLocation ? (
+                        <div ref={locationInputRef} className="flex gap-2 mt-1">
+                          <Input
+                            placeholder="Enter location (e.g., Lab A, Storage Room)"
+                            value={newLocation}
+                            onChange={(e) => setNewLocation(e.target.value)}
+                            className="flex-1"
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={handleAddLocation}
+                            disabled={!newLocation.trim() || isSavingLocation}
+                          >
+                            {isSavingLocation ? "Adding..." : "Add"}
                           </Button>
                         </div>
-                        
-                        {formErrors.individualItems && (
-                          <p className="text-red-500 text-xs">{formErrors.individualItems}</p>
-                        )}
-                        
-                        {individualItems.length === 0 ? (
-                          <p className="text-xs text-gray-500 text-center py-2">
-                            No individual items added. Click "Add Item" to start tracking individual components.
-                          </p>
-                        ) : (
-                          <div className="space-y-1 max-h-24 overflow-y-auto">
-                            {individualItems.map((item, index) => (
-                              <div key={item.id} className="flex flex-col space-y-0.5">
-                                <div className="flex items-center space-x-1">
-                                  <Input
-                                    placeholder={`Unique ID ${index + 1}`}
-                                    value={item.unique_id}
-                                    onChange={(e) => updateIndividualItem(item.id, e.target.value)}
-                                    className={`flex-1 h-7 text-xs ${individualItemErrors[item.id] ? 'border-red-500 focus:border-red-500' : ''}`}
-                                  />
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => removeIndividualItem(item.id)}
-                                    className="h-7 w-7 p-0 text-red-600 hover:text-red-700"
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                                {individualItemErrors[item.id] && (
-                                  <p className="text-red-500 text-xs ml-1">{individualItemErrors[item.id]}</p>
-                                )}
-                              </div>
+                      ) : (
+                        <Select value={newComponent.component_location} onValueChange={value => setNewComponent(prev => ({ ...prev, component_location: value }))}>
+                          <SelectTrigger className={`mt-1 ${formErrors.component_location ? 'border-red-500' : ''}`}><SelectValue placeholder="Select Location
+                            " /></SelectTrigger>
+                          <SelectContent>
+                            {locationOptions.map(location => (
+                              <SelectItem key={location} value={location}>{location}</SelectItem>
                             ))}
-                          </div>
-                        )}
-                        
-                        {individualItems.length > 0 && (
-                          <div className="text-xs text-gray-600">
-                            Total items: {individualItems.filter(item => item.unique_id.trim()).length} / {individualItems.length}
-                          </div>
-                        )}
+                          </SelectContent>
+                        </Select>
+                      )}
+                      {formErrors.component_location && <p className="text-red-500 text-xs mt-1">{formErrors.component_location}</p>}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="category">Category *</Label>
+                        <div className="flex space-x-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowAddCategory(true)}
+                            className="h-6 w-6 p-0"
+                            title="Add category"
+                            aria-label="Add category"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                          {newComponent.component_category && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setCategoryToDelete(newComponent.component_category)
+                                setIsDeleteCategoryDialogOpen(true)
+                              }}
+                              className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
+                              title="Delete category"
+                              aria-label="Delete category"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                    )}
-                    
+                      {showAddCategory ? (
+                        <div ref={categoryInputRef} className="flex gap-2 mt-1">
+                          <Input
+                            placeholder="Enter category (e.g., Electrical, Mechanical)"
+                            value={newCategory}
+                            onChange={(e) => setNewCategory(e.target.value)}
+                            className="flex-1"
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={handleAddCategory}
+                            disabled={!newCategory.trim() || isSavingCategory}
+                          >
+                            {isSavingCategory ? "Adding..." : "Add"}
+                          </Button>
+                        </div>
+                      ) : (
+                        <Select value={newComponent.component_category} onValueChange={value => setNewComponent(prev => ({ ...prev, component_category: value }))}>
+                          <SelectTrigger className={`mt-1 ${formErrors.component_category ? 'border-red-500' : ''}`}><SelectValue placeholder="Select category" /></SelectTrigger>
+                          <SelectContent>
+                            {categoryOptions.map(category => (
+                              <SelectItem key={category} value={category}>{category}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                      {formErrors.component_category && <p className="text-red-500 text-xs mt-1">{formErrors.component_category}</p>}
+                    </div>
+                    <div className="w-20">
+                      <Label htmlFor="quantity">Quantity *</Label>
+                      <Input
+                        id="quantity"
+                        type="number"
+                        value={newComponent.component_quantity}
+                        onChange={e => setNewComponent(prev => ({ ...prev, component_quantity: Number.parseInt(e.target.value) }))}
+                        min="1"
+                        disabled={trackIndividual}
+                        className={`mt-1 ${formErrors.component_quantity ? 'border-red-500' : ''}`}
+                      />
+                      {formErrors.component_quantity && <p className="text-red-500 text-xs mt-1">{formErrors.component_quantity}</p>}
+                    </div>
+                  </div>
+
+                  {/* Individual Tracking Toggle */}
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="track-individual"
+                      checked={trackIndividual}
+                      onCheckedChange={setTrackIndividual}
+                    />
+                    <Label htmlFor="track-individual" className="text-sm font-medium">
+                      Track Individual Items
+                    </Label>
+                  </div>
+
+                  {/* Individual Items Section */}
+                  {trackIndividual && (
+                    <div className="space-y-2 border rounded-lg p-2 bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium">Individual Items</Label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={addIndividualItem}
+                          className="h-6 text-xs"
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          Add Item
+                        </Button>
+                      </div>
+
+                      {formErrors.individualItems && (
+                        <p className="text-red-500 text-xs">{formErrors.individualItems}</p>
+                      )}
+
+                      {individualItems.length === 0 ? (
+                        <p className="text-xs text-gray-500 text-center py-2">
+                          No individual items added. Click "Add Item" to start tracking individual components.
+                        </p>
+                      ) : (
+                        <div className="space-y-1 max-h-24 overflow-y-auto">
+                          {individualItems.map((item, index) => (
+                            <div key={item.id} className="flex flex-col space-y-0.5">
+                              <div className="flex items-center space-x-1">
+                                <Input
+                                  placeholder={`Unique ID ${index + 1}`}
+                                  value={item.unique_id}
+                                  onChange={(e) => updateIndividualItem(item.id, e.target.value)}
+                                  className={`flex-1 h-7 text-xs ${individualItemErrors[item.id] ? 'border-red-500 focus:border-red-500' : ''}`}
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => removeIndividualItem(item.id)}
+                                  className="h-7 w-7 p-0 text-red-600 hover:text-red-700"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                              {individualItemErrors[item.id] && (
+                                <p className="text-red-500 text-xs ml-1">{individualItemErrors[item.id]}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {individualItems.length > 0 && (
+                        <div className="text-xs text-gray-600">
+                          Total items: {individualItems.filter(item => item.unique_id.trim()).length} / {individualItems.length}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="space-y-3">
-                  <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between">
                       <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Component Images</h3>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        type="button" 
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        type="button"
                         className="h-8"
                         onClick={handleAIAnalysis}
                         disabled={!frontImageFile || !backImageFile || isAnalyzing}
@@ -1711,136 +1711,136 @@ export function ManageLabComponents() {
                         ) : (
                           <img src="/genAI_icon.png" alt="GenAI" className="h-7 w-7" />
                         )}
-                    </Button>
-                  </div>
+                      </Button>
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="frontImage">Front Image *</Label>
                         <Input id="frontImage" type="file" accept="image/*" onChange={e => setFrontImageFile(e.target.files?.[0] || null)} className={`mt-1 ${formErrors.frontImage ? 'border-red-500' : ''}`} />
                         {formErrors.frontImage && <p className="text-red-500 text-xs mt-1">{formErrors.frontImage}</p>}
-                      {frontImagePreview && (
-                        <div className="mt-2">
-                          <img
-                            src={frontImagePreview}
-                            alt="Front Preview"
+                        {frontImagePreview && (
+                          <div className="mt-2">
+                            <img
+                              src={frontImagePreview}
+                              alt="Front Preview"
                               className="w-full h-40 object-contain rounded-lg bg-gray-50"
-                          />
-                        </div>
-                      )}
-                    </div>
+                            />
+                          </div>
+                        )}
+                      </div>
                       <div>
                         <Label htmlFor="backImage">Back Image *</Label>
                         <Input id="backImage" type="file" accept="image/*" onChange={e => setBackImageFile(e.target.files?.[0] || null)} className={`mt-1 ${formErrors.backImage ? 'border-red-500' : ''}`} />
                         {formErrors.backImage && <p className="text-red-500 text-xs mt-1">{formErrors.backImage}</p>}
-                      {backImagePreview && (
-                        <div className="mt-2">
-                          <img
-                            src={backImagePreview}
-                            alt="Back Preview"
+                        {backImagePreview && (
+                          <div className="mt-2">
+                            <img
+                              src={backImagePreview}
+                              alt="Back Preview"
                               className="w-full h-40 object-contain rounded-lg bg-gray-50"
-                          />
-                        </div>
-                      )}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
                 </div>
                 {/* Right Column: Details & Purchase Info */}
                 <div className="space-y-6 pr-2">
                   <div className="space-y-3">
-                  <div>
+                    <div>
                       <Label htmlFor="description">Description *</Label>
                       <Textarea id="description" value={newComponent.component_description} onChange={e => setNewComponent(prev => ({ ...prev, component_description: e.target.value }))} rows={4} className={`mt-1 resize-none leading-relaxed ${formErrors.component_description ? 'border-red-500' : ''}`} placeholder="Describe the component's purpose, key features, and functionality (max 250 characters)" maxLength={250} />
                       <div className="flex justify-between items-center mt-1">
                         {formErrors.component_description && <p className="text-red-500 text-xs">{formErrors.component_description}</p>}
                         <p className="text-xs text-gray-500 ml-auto">{newComponent.component_description.length}/250 characters</p>
                       </div>
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <Label>Specifications</Label>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={addSpecificationRow}
-                        className="h-6 w-6 p-0"
-                        title="Add specification row"
-                      >
-                        <Plus className="h-3 w-3" />
-                      </Button>
                     </div>
-                    <div className="mt-2 space-y-2 h-28 overflow-y-auto">
-                      {specificationRows.map((row, index) => (
-                        <div key={row.id} className="flex items-center space-x-2">
-                          <Input
-                            placeholder=""
-                            value={row.attribute}
-                            onChange={(e) => updateSpecificationRow(row.id, 'attribute', e.target.value)}
-                            className="flex-1 h-8 text-sm"
-                          />
-                          <Input
-                            placeholder=""
-                            value={row.value}
-                            onChange={(e) => updateSpecificationRow(row.id, 'value', e.target.value)}
-                            className="flex-1 h-8 text-sm"
-                          />
-                          {specificationRows.length > 1 && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => removeSpecificationRow(row.id)}
-                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          )}
-                        </div>
-                      ))}
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <Label>Specifications</Label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={addSpecificationRow}
+                          className="h-6 w-6 p-0"
+                          title="Add specification row"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <div className="mt-2 space-y-2 h-28 overflow-y-auto">
+                        {specificationRows.map((row, index) => (
+                          <div key={row.id} className="flex items-center space-x-2">
+                            <Input
+                              placeholder=""
+                              value={row.attribute}
+                              onChange={(e) => updateSpecificationRow(row.id, 'attribute', e.target.value)}
+                              className="flex-1 h-8 text-sm"
+                            />
+                            <Input
+                              placeholder=""
+                              value={row.value}
+                              onChange={(e) => updateSpecificationRow(row.id, 'value', e.target.value)}
+                              className="flex-1 h-8 text-sm"
+                            />
+                            {specificationRows.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => removeSpecificationRow(row.id)}
+                                className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
                   <div className="space-y-3">
                     <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Purchase Details (Optional)</h3>
                     <div className="grid grid-cols-2 gap-4">
-                    <div>
+                      <div>
                         <Label htmlFor="invoiceNumber">Invoice Number</Label>
                         <Input id="invoiceNumber" value={newComponent.invoice_number} onChange={e => setNewComponent(prev => ({ ...prev, invoice_number: e.target.value }))} className={`mt-1 ${formErrors.invoice_number ? 'border-red-500' : ''}`} />
                         {formErrors.invoice_number && <p className="text-red-500 text-xs mt-1">{formErrors.invoice_number}</p>}
-                    </div>
-                    <div>
+                      </div>
+                      <div>
                         <Label htmlFor="purchasedFrom">Purchased From</Label>
                         <Input id="purchasedFrom" value={newComponent.purchased_from} onChange={e => setNewComponent(prev => ({ ...prev, purchased_from: e.target.value }))} className={`mt-1 ${formErrors.purchased_from ? 'border-red-500' : ''}`} />
                         {formErrors.purchased_from && <p className="text-red-500 text-xs mt-1">{formErrors.purchased_from}</p>}
+                      </div>
                     </div>
-                  </div>
                     <div className="grid grid-cols-3 gap-4">
-                    <div>
+                      <div>
                         <Label htmlFor="purchasedDate">Purchase Date</Label>
                         <Input id="purchasedDate" type="date" value={newComponent.purchase_date} onChange={e => setNewComponent(prev => ({ ...prev, purchase_date: e.target.value }))} className={`mt-1 ${formErrors.purchase_date ? 'border-red-500' : ''}`} />
                         {formErrors.purchase_date && <p className="text-red-500 text-xs mt-1">{formErrors.purchase_date}</p>}
-                    </div>
-                    <div>
+                      </div>
+                      <div>
                         <Label htmlFor="purchasedValue">Purchase Value</Label>
                         <Input id="purchasedValue" type="number" min="0" step="0.01" value={newComponent.purchase_value} onChange={e => setNewComponent(prev => ({ ...prev, purchase_value: e.target.value }))} placeholder="0.00" className={`mt-1 ${formErrors.purchase_value ? 'border-red-500' : ''}`} />
                         {formErrors.purchase_value && <p className="text-red-500 text-xs mt-1">{formErrors.purchase_value}</p>}
-                    </div>
-                    <div>
+                      </div>
+                      <div>
                         <Label htmlFor="purchasedCurrency">Currency</Label>
                         <Select value={newComponent.purchase_currency} onValueChange={value => setNewComponent(prev => ({ ...prev, purchase_currency: value }))}>
                           <SelectTrigger className={`mt-1 ${formErrors.purchase_currency ? 'border-red-500' : ''}`}><SelectValue placeholder="Select currency" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="INR">INR - Indian Rupee</SelectItem>
-                          <SelectItem value="USD">USD - US Dollar</SelectItem>
-                          <SelectItem value="EUR">EUR - Euro</SelectItem>
-                          <SelectItem value="GBP">GBP - British Pound</SelectItem>
-                        </SelectContent>
-                      </Select>
+                          <SelectContent>
+                            <SelectItem value="INR">INR - Indian Rupee</SelectItem>
+                            <SelectItem value="USD">USD - US Dollar</SelectItem>
+                            <SelectItem value="EUR">EUR - Euro</SelectItem>
+                            <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                          </SelectContent>
+                        </Select>
                         {formErrors.purchase_currency && <p className="text-red-500 text-xs mt-1">{formErrors.purchase_currency}</p>}
+                      </div>
                     </div>
                   </div>
-                </div>
                 </div>
               </div>
               {/* Form Actions */}
@@ -1850,13 +1850,13 @@ export function ManageLabComponents() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span tabIndex={0}>
-                        <Button 
+                        <Button
                           type="button"
                           onClick={(e) => {
                             e.preventDefault()
                             e.stopPropagation()
                             handleAddComponent()
-                          }} 
+                          }}
                           disabled={!isAddFormValid || isSubmitting}
                         >
                           {isSubmitting ? "Adding..." : "Add Component"}
@@ -1867,7 +1867,7 @@ export function ManageLabComponents() {
                       <TooltipContent>
                         <p>
                           Please fill in all required fields: Component Name, Description, Category, Location, Front Image, and Back Image.
-                          {trackIndividual 
+                          {trackIndividual
                             ? " When individual tracking is enabled, add at least one individual item with a unique ID."
                             : " Quantity must be greater than 0."
                           }
@@ -1955,10 +1955,9 @@ export function ManageLabComponents() {
                   {(component.imageUrl || component.backImageUrl) && (
                     <div className="relative w-full h-48">
                       {/* Front Image */}
-                      <div 
-                        className={`absolute inset-0 w-full h-full transition-opacity duration-300 ease-in-out ${
-                          imageStates[component.id] ? 'opacity-0' : 'opacity-100'
-                        }`}
+                      <div
+                        className={`absolute inset-0 w-full h-full transition-opacity duration-300 ease-in-out ${imageStates[component.id] ? 'opacity-0' : 'opacity-100'
+                          }`}
                       >
                         <img
                           src={component.imageUrl || '/placeholder.jpg'}
@@ -1966,13 +1965,12 @@ export function ManageLabComponents() {
                           className="w-full h-full object-contain rounded-md bg-gray-50"
                         />
                       </div>
-                      
+
                       {/* Back Image */}
                       {component.backImageUrl && (
-                        <div 
-                          className={`absolute inset-0 w-full h-full transition-opacity duration-300 ease-in-out ${
-                            imageStates[component.id] ? 'opacity-100' : 'opacity-0'
-                          }`}
+                        <div
+                          className={`absolute inset-0 w-full h-full transition-opacity duration-300 ease-in-out ${imageStates[component.id] ? 'opacity-100' : 'opacity-0'
+                            }`}
                         >
                           <img
                             src={component.backImageUrl}
@@ -1981,7 +1979,7 @@ export function ManageLabComponents() {
                           />
                         </div>
                       )}
-                      
+
                       {/* Navigation Buttons */}
                       {component.backImageUrl && (
                         <>
@@ -2007,25 +2005,23 @@ export function ManageLabComponents() {
                           )}
                         </>
                       )}
-                      
+
                       {/* Image Indicators */}
                       {component.backImageUrl && (
                         <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex space-x-1 z-10">
-                          <div 
-                            className={`w-1 h-1 rounded-full transition-colors duration-300 ${
-                              !imageStates[component.id] ? 'bg-white' : 'bg-white/50'
-                            }`}
+                          <div
+                            className={`w-1 h-1 rounded-full transition-colors duration-300 ${!imageStates[component.id] ? 'bg-white' : 'bg-white/50'
+                              }`}
                           />
-                          <div 
-                            className={`w-1 h-1 rounded-full transition-colors duration-300 ${
-                              imageStates[component.id] ? 'bg-white' : 'bg-white/50'
-                            }`}
+                          <div
+                            className={`w-1 h-1 rounded-full transition-colors duration-300 ${imageStates[component.id] ? 'bg-white' : 'bg-white/50'
+                              }`}
                           />
                         </div>
                       )}
                     </div>
                   )}
-                  
+
                   <div className="text-xs text-gray-700">
                     <div className="flex justify-between items-center">
                       <span><span className="font-medium">Total:</span> {component.component_quantity}</span>
@@ -2091,57 +2087,57 @@ export function ManageLabComponents() {
                   <div className="grid grid-cols-3 gap-3">
                     <div className="col-span-2">
                       <Label htmlFor="edit-name">Component Name *</Label>
-                      <Input 
-                        id="edit-name" 
-                        value={editingComponent.component_name} 
+                      <Input
+                        id="edit-name"
+                        value={editingComponent.component_name}
                         onChange={e => setEditingComponent(prev => prev ? { ...prev, component_name: e.target.value } : null)}
-                        className="mt-1" 
+                        className="mt-1"
                       />
                     </div>
                     <div className="col-span-1">
                       <Label htmlFor="edit-tagId">Tag ID (optional)</Label>
-                      <Input 
-                        id="edit-tagId" 
-                        value={editingComponent.component_tag_id || ""} 
+                      <Input
+                        id="edit-tagId"
+                        value={editingComponent.component_tag_id || ""}
                         onChange={e => setEditingComponent(prev => prev ? { ...prev, component_tag_id: e.target.value } : null)}
-                        className="mt-1" 
+                        className="mt-1"
                       />
                     </div>
                   </div>
-                  
+
                   <div className="flex gap-3 items-end">
                     <div className="flex-1">
                       <Label htmlFor="edit-location">Location *</Label>
-                      <Input 
-                        id="edit-location" 
-                        value={editingComponent.component_location} 
+                      <Input
+                        id="edit-location"
+                        value={editingComponent.component_location}
                         onChange={e => setEditingComponent(prev => prev ? { ...prev, component_location: e.target.value } : null)}
-                        className="mt-1" 
+                        className="mt-1"
                       />
                     </div>
                     <div className="flex-1">
                       <Label htmlFor="edit-category">Category *</Label>
-                      <Input 
-                        id="edit-category" 
-                        value={editingComponent.component_category} 
+                      <Input
+                        id="edit-category"
+                        value={editingComponent.component_category}
                         onChange={e => setEditingComponent(prev => prev ? { ...prev, component_category: e.target.value } : null)}
-                        className="mt-1" 
+                        className="mt-1"
                       />
                     </div>
                     <div className="w-20">
                       <Label htmlFor="edit-quantity">Quantity *</Label>
-                      <Input 
-                        id="edit-quantity" 
-                        type="number" 
-                        value={editingComponent.component_quantity} 
+                      <Input
+                        id="edit-quantity"
+                        type="number"
+                        value={editingComponent.component_quantity}
                         onChange={e => setEditingComponent(prev => prev ? { ...prev, component_quantity: Number.parseInt(e.target.value) } : null)}
-                        min="1" 
-                        className="mt-1" 
+                        min="1"
+                        className="mt-1"
                       />
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Component Images</h3>
@@ -2149,12 +2145,12 @@ export function ManageLabComponents() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="edit-frontImage">Front Image</Label>
-                      <Input 
-                        id="edit-frontImage" 
-                        type="file" 
-                        accept="image/*" 
+                      <Input
+                        id="edit-frontImage"
+                        type="file"
+                        accept="image/*"
                         onChange={e => setFrontImageFile(e.target.files?.[0] || null)}
-                        className="mt-1" 
+                        className="mt-1"
                       />
                       {(frontImagePreview || editingComponent.imageUrl) && (
                         <div className="mt-2">
@@ -2168,12 +2164,12 @@ export function ManageLabComponents() {
                     </div>
                     <div>
                       <Label htmlFor="edit-backImage">Back Image</Label>
-                      <Input 
-                        id="edit-backImage" 
-                        type="file" 
-                        accept="image/*" 
+                      <Input
+                        id="edit-backImage"
+                        type="file"
+                        accept="image/*"
                         onChange={e => setBackImageFile(e.target.files?.[0] || null)}
-                        className="mt-1" 
+                        className="mt-1"
                       />
                       {(backImagePreview || editingComponent.backImageUrl) && (
                         <div className="mt-2">
@@ -2188,18 +2184,18 @@ export function ManageLabComponents() {
                   </div>
                 </div>
               </div>
-              
+
               {/* Right Column: Details & Purchase Info */}
               <div className="space-y-6 pr-2">
                 <div className="space-y-3">
                   <div>
                     <Label htmlFor="edit-description">Description *</Label>
-                    <Textarea 
-                      id="edit-description" 
-                      value={editingComponent.component_description} 
+                    <Textarea
+                      id="edit-description"
+                      value={editingComponent.component_description}
                       onChange={e => setEditingComponent(prev => prev ? { ...prev, component_description: e.target.value } : null)}
-                      rows={4} 
-                      className="mt-1 resize-none leading-relaxed" 
+                      rows={4}
+                      className="mt-1 resize-none leading-relaxed"
                       placeholder="Describe the component's purpose, key features, and functionality (max 250 characters)"
                       maxLength={250}
                     />
@@ -2249,57 +2245,57 @@ export function ManageLabComponents() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="space-y-3">
                   <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Purchase Details (Optional)</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="edit-invoiceNumber">Invoice Number</Label>
-                      <Input 
-                        id="edit-invoiceNumber" 
-                        value={editingComponent.invoice_number || ""} 
+                      <Input
+                        id="edit-invoiceNumber"
+                        value={editingComponent.invoice_number || ""}
                         onChange={e => setEditingComponent(prev => prev ? { ...prev, invoice_number: e.target.value } : null)}
-                        className="mt-1" 
+                        className="mt-1"
                       />
                     </div>
                     <div>
                       <Label htmlFor="edit-purchasedFrom">Purchased From</Label>
-                      <Input 
-                        id="edit-purchasedFrom" 
-                        value={editingComponent.purchased_from || ""} 
+                      <Input
+                        id="edit-purchasedFrom"
+                        value={editingComponent.purchased_from || ""}
                         onChange={e => setEditingComponent(prev => prev ? { ...prev, purchased_from: e.target.value } : null)}
-                        className="mt-1" 
+                        className="mt-1"
                       />
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-4">
                     <div>
                       <Label htmlFor="edit-purchaseDate">Purchase Date</Label>
-                      <Input 
-                        id="edit-purchaseDate" 
-                        type="date" 
-                        value={editingComponent.purchase_date ? new Date(editingComponent.purchase_date).toISOString().split('T')[0] : ''} 
+                      <Input
+                        id="edit-purchaseDate"
+                        type="date"
+                        value={editingComponent.purchase_date ? new Date(editingComponent.purchase_date).toISOString().split('T')[0] : ''}
                         onChange={e => setEditingComponent(prev => prev ? { ...prev, purchase_date: e.target.value } : null)}
-                        className="mt-1" 
+                        className="mt-1"
                       />
                     </div>
                     <div>
                       <Label htmlFor="edit-purchaseValue">Purchase Value</Label>
-                      <Input 
-                        id="edit-purchaseValue" 
-                        type="number" 
-                        min="0" 
-                        step="0.01" 
-                        value={editingComponent.purchase_value || ""} 
+                      <Input
+                        id="edit-purchaseValue"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={editingComponent.purchase_value || ""}
                         onChange={e => setEditingComponent(prev => prev ? { ...prev, purchase_value: e.target.value } : null)}
-                        placeholder="0.00" 
-                        className="mt-1" 
+                        placeholder="0.00"
+                        className="mt-1"
                       />
                     </div>
                     <div>
                       <Label htmlFor="edit-purchaseCurrency">Currency</Label>
-                      <Select 
-                        value={editingComponent.purchase_currency} 
+                      <Select
+                        value={editingComponent.purchase_currency}
                         onValueChange={value => setEditingComponent(prev => prev ? { ...prev, purchase_currency: value } : null)}
                       >
                         <SelectTrigger className="mt-1">
@@ -2316,7 +2312,7 @@ export function ManageLabComponents() {
                   </div>
                 </div>
               </div>
-              
+
               {/* Form Actions */}
               <div className="col-span-1 md:col-span-2 flex justify-end space-x-3 pt-4 border-t mt-4">
                 <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} className="px-6">Cancel</Button>
@@ -2324,9 +2320,9 @@ export function ManageLabComponents() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span tabIndex={0}>
-                        <Button 
+                        <Button
                           type="button"
-                          onClick={handleEditComponent} 
+                          onClick={handleEditComponent}
                           disabled={!isEditFormValid}
                         >
                           Save Changes
@@ -2390,7 +2386,7 @@ export function ManageLabComponents() {
                   </div>
                 )}
               </div>
-              
+
               <div className="flex justify-end space-x-3 pt-4">
                 <Button
                   variant="outline"
@@ -2433,73 +2429,73 @@ export function ManageLabComponents() {
               <div className="space-y-3">
                 {/* Basic Information */}
                 <div className="bg-blue-50 rounded-lg p-3">
-                <h3 className="text-base font-semibold text-blue-900 mb-2 flex items-center gap-2">
-                  <Package className="h-4 w-4" />
-                  Basic Information
-                </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-xs font-medium text-gray-500">Component Name</Label>
-                    <div className="text-sm font-medium text-gray-900">{componentToView.component_name}</div>
+                  <h3 className="text-base font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    Basic Information
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs font-medium text-gray-500">Component Name</Label>
+                      <div className="text-sm font-medium text-gray-900">{componentToView.component_name}</div>
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium text-gray-500">Category</Label>
+                      <div className="text-sm font-medium text-gray-900">{componentToView.component_category}</div>
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium text-gray-500">Location</Label>
+                      <div className="text-sm font-medium text-gray-900">{componentToView.component_location}</div>
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium text-gray-500">Tag ID</Label>
+                      <div className="text-sm font-medium text-gray-900">{componentToView.component_tag_id || '-'}</div>
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium text-gray-500">Total Quantity</Label>
+                      <div className="text-sm font-medium text-gray-900">{componentToView.component_quantity}</div>
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium text-gray-500">Available Quantity</Label>
+                      <div className="text-sm font-medium text-gray-900">{componentToView.availableQuantity || 0}</div>
+                    </div>
                   </div>
-                  <div>
-                    <Label className="text-xs font-medium text-gray-500">Category</Label>
-                    <div className="text-sm font-medium text-gray-900">{componentToView.component_category}</div>
-                  </div>
-                  <div>
-                    <Label className="text-xs font-medium text-gray-500">Location</Label>
-                    <div className="text-sm font-medium text-gray-900">{componentToView.component_location}</div>
-                  </div>
-                  <div>
-                    <Label className="text-xs font-medium text-gray-500">Tag ID</Label>
-                    <div className="text-sm font-medium text-gray-900">{componentToView.component_tag_id || '-'}</div>
-                  </div>
-                  <div>
-                    <Label className="text-xs font-medium text-gray-500">Total Quantity</Label>
-                    <div className="text-sm font-medium text-gray-900">{componentToView.component_quantity}</div>
-                  </div>
-                  <div>
-                    <Label className="text-xs font-medium text-gray-500">Available Quantity</Label>
-                    <div className="text-sm font-medium text-gray-900">{componentToView.availableQuantity || 0}</div>
+                  <div className="mt-3">
+                    <Label className="text-xs font-medium text-gray-500">Description</Label>
+                    <div className="text-xs text-gray-700 mt-1">{componentToView.component_description}</div>
                   </div>
                 </div>
-                <div className="mt-3">
-                  <Label className="text-xs font-medium text-gray-500">Description</Label>
-                  <div className="text-xs text-gray-700 mt-1">{componentToView.component_description}</div>
+
+                {/* Audit Trail - Separate Section */}
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <h3 className="text-base font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                    <History className="h-4 w-4" />
+                    Audit Trail
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs font-medium text-gray-500">Created By</Label>
+                      <div className="text-sm text-gray-900">{componentToView.created_by || '-'}</div>
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium text-gray-500">Created At</Label>
+                      <div className="text-sm text-gray-900">
+                        {componentToView.created_at ? new Date(componentToView.created_at).toLocaleDateString() : '-'}
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium text-gray-500">Last Modified By</Label>
+                      <div className="text-sm text-gray-900">{componentToView.modified_by || '-'}</div>
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium text-gray-500">Last Modified At</Label>
+                      <div className="text-sm text-gray-900">
+                        {componentToView.modified_at ? new Date(componentToView.modified_at).toLocaleDateString() : '-'}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Audit Trail - Separate Section */}
-              <div className="bg-gray-50 rounded-lg p-3">
-                <h3 className="text-base font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                  <History className="h-4 w-4" />
-                  Audit Trail
-                </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-xs font-medium text-gray-500">Created By</Label>
-                    <div className="text-sm text-gray-900">{componentToView.created_by || '-'}</div>
-                  </div>
-                  <div>
-                    <Label className="text-xs font-medium text-gray-500">Created At</Label>
-                    <div className="text-sm text-gray-900">
-                      {componentToView.created_at ? new Date(componentToView.created_at).toLocaleDateString() : '-'}
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-xs font-medium text-gray-500">Last Modified By</Label>
-                    <div className="text-sm text-gray-900">{componentToView.modified_by || '-'}</div>
-                  </div>
-                  <div>
-                    <Label className="text-xs font-medium text-gray-500">Last Modified At</Label>
-                    <div className="text-sm text-gray-900">
-                      {componentToView.modified_at ? new Date(componentToView.modified_at).toLocaleDateString() : '-'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              </div>
-              
               {/* Right Column: Specifications and Purchase Details */}
               <div className="space-y-3">
                 {/* Specifications */}
@@ -2516,33 +2512,33 @@ export function ManageLabComponents() {
                         if (!attribute || !value) return null
                         return { attribute, value, originalIndex: index }
                       })
-                      .filter(Boolean)
-                      .sort((a, b) => {
-                        const getLabSpecPriority = (attribute: string): number => {
-                          const attr = attribute.toLowerCase()
-                          if (attr.includes('dimension') || attr.includes('size')) return 10
-                          if (attr.includes('voltage') || attr.includes('power')) return 9
-                          if (attr.includes('current') || attr.includes('rating')) return 8
-                          if (attr.includes('material') || attr.includes('type')) return 7
-                          if (attr.includes('interface') || attr.includes('connection')) return 6
-                          if (attr.includes('package') || attr.includes('mounting')) return 5
-                          if (attr.includes('temperature') || attr.includes('operating')) return 4
-                          if (attr.includes('frequency') || attr.includes('speed')) return 3
-                          if (attr.includes('weight') || attr.includes('mass')) return 2
-                          return 1
-                        }
-                        return getLabSpecPriority(b.attribute) - getLabSpecPriority(a.attribute)
-                      })
-                      .map((spec, index) => (
-                        <div key={index} className="grid grid-cols-2 gap-2 text-xs border-b border-gray-100 pb-1">
-                          <div className="font-medium text-gray-600">{spec.attribute}</div>
-                          <div className="text-gray-700">{spec.value}</div>
-                        </div>
-                      ))}
+                        .filter((item): item is { attribute: string; value: string; originalIndex: number } => item !== null)
+                        .sort((a, b) => {
+                          const getLabSpecPriority = (attribute: string): number => {
+                            const attr = attribute.toLowerCase()
+                            if (attr.includes('dimension') || attr.includes('size')) return 10
+                            if (attr.includes('voltage') || attr.includes('power')) return 9
+                            if (attr.includes('current') || attr.includes('rating')) return 8
+                            if (attr.includes('material') || attr.includes('type')) return 7
+                            if (attr.includes('interface') || attr.includes('connection')) return 6
+                            if (attr.includes('package') || attr.includes('mounting')) return 5
+                            if (attr.includes('temperature') || attr.includes('operating')) return 4
+                            if (attr.includes('frequency') || attr.includes('speed')) return 3
+                            if (attr.includes('weight') || attr.includes('mass')) return 2
+                            return 1
+                          }
+                          return getLabSpecPriority(b.attribute) - getLabSpecPriority(a.attribute)
+                        })
+                        .map((spec, index) => (
+                          <div key={index} className="grid grid-cols-2 gap-2 text-xs border-b border-gray-100 pb-1">
+                            <div className="font-medium text-gray-600">{spec.attribute}</div>
+                            <div className="text-gray-700">{spec.value}</div>
+                          </div>
+                        ))}
                     </div>
                   </div>
                 )}
-                
+
                 {/* Purchase Details */}
                 <div className="bg-gray-50 rounded-lg p-3">
                   <h3 className="text-base font-semibold text-gray-900 mb-2 flex items-center gap-2">
@@ -2598,7 +2594,7 @@ export function ManageLabComponents() {
                   This will remove the category from the available options. Components currently using this category will not be affected.
                 </p>
               </div>
-              
+
               <div className="flex justify-end space-x-3">
                 <Button
                   variant="outline"
@@ -2642,7 +2638,7 @@ export function ManageLabComponents() {
                   This will remove the location from the available options. Components currently using this location will not be affected.
                 </p>
               </div>
-              
+
               <div className="flex justify-end space-x-3">
                 <Button
                   variant="outline"

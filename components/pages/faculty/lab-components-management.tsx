@@ -478,7 +478,7 @@ export function LabComponentsManagement() {
       </div>
 
       {/* Section Heading for Available Lab Components */}
-      <h2 className="faculty-page-title" style={{ color: '#1a202c' }}>Available Lab Components</h2>
+      <h2 className="faculty-page-title">Available Lab Components</h2>
 
       {/* Components Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full max-w-[1100px] mx-auto">

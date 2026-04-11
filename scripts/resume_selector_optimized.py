@@ -158,7 +158,7 @@ class OptimizedResumeSelector:
             # Process embeddings in batches
             batch_size = 32
             all_embeddings = []
-            
+ama            
             for i in range(0, len(self.resumes), batch_size):
                 batch = self.resumes[i:i + batch_size]
                 batch_embeddings = self.embedding_model.encode(batch, show_progress_bar=False)

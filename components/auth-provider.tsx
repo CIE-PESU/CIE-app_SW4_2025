@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import React, { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
 
 export type UserRole = "ADMIN" | "FACULTY" | "STUDENT"
 
@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     try {
       console.log("Attempting login for:", email)
       
@@ -111,20 +111,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("Login error:", error)
       return false
     }
-  }
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setUser(null)
     localStorage.removeItem("cie-user")
-  }
+  }, []);
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     if (user) {
       await refreshUserData(user.id)
     }
-  }
+  }, [user]);
 
-  return <AuthContext.Provider value={{ user, login, logout, isLoading, refreshUser }}>{children}</AuthContext.Provider>
+  const value = React.useMemo(() => ({
+    user,
+    login,
+    logout,
+    isLoading,
+    refreshUser
+  }), [user, login, logout, isLoading, refreshUser]);
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+
 }
 
 export function useAuth() {

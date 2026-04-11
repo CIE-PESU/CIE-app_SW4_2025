@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react"
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react"
 import { useAuth } from "@/components/auth-provider"
 
 interface Activity {
@@ -42,9 +42,9 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
   const [loading, setLoading] = useState(true)
   const [readActivities, setReadActivities] = useState<Set<string>>(new Set())
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     if (!user?.id) return
-
+ 
     setLoading(true)
     try {
       let endpoint = ''
@@ -63,13 +63,13 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         default:
           return
       }
-
+ 
       const response = await fetch(endpoint, {
         headers: {
           'x-user-id': user.id
         }
       })
-
+ 
       if (response.ok) {
         const data = await response.json()
         setActivities(data.activities || [])
@@ -80,7 +80,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user?.id, user?.role]);
 
   // Calculate unread activities and count
   const unreadActivities = activities.filter(activity => 
@@ -88,31 +88,26 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
   )
   const unreadCount = unreadActivities.length
 
-
-
-  const markAsRead = (activity: Activity) => {
+  const markAsRead = useCallback((activity: Activity) => {
     const activityKey = `${activity.type}-${activity.time}`
     setReadActivities(prev => new Set([...prev, activityKey]))
-  }
+  }, []);
 
-  const markAllAsRead = () => {
+  const markAllAsRead = useCallback(() => {
     const allKeys = activities.map(activity => `${activity.type}-${activity.time}`)
     setReadActivities(new Set(allKeys))
-  }
+  }, [activities]);
 
-  const refreshNotifications = () => {
+  const refreshNotifications = useCallback(() => {
     fetchNotifications()
-  }
+  }, [fetchNotifications]);
 
   // Fetch notifications when user changes or component mounts
   useEffect(() => {
     fetchNotifications()
-  }, [user?.id])
+  }, [fetchNotifications])
 
-  // Don't clear read activities when activities change - keep them persistent
-  // This ensures read state persists across re-renders
-
-  const value: NotificationContextType = {
+  const value = React.useMemo(() => ({
     activities,
     unreadActivities,
     loading,
@@ -120,7 +115,8 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     markAsRead,
     markAllAsRead,
     refreshNotifications
-  }
+  }), [activities, unreadActivities, loading, unreadCount, markAsRead, markAllAsRead, refreshNotifications]);
+
 
   return (
     <NotificationContext.Provider value={value}>

@@ -130,7 +130,7 @@ export function LabComponentsRequest({ onBackToManagement }: LabComponentsReques
 
   const isProjectApproved = (projectId: string) => {
     const project = projects.find(p => p.id === projectId)
-    return project && project.status === "ONGOING"
+    return project && (project.status === "ONGOING" || project.status === "APPROVED")
   }
 
   const canSubmitRequest = () => {
@@ -146,6 +146,8 @@ export function LabComponentsRequest({ onBackToManagement }: LabComponentsReques
         return "Project pending approval"
       case "ONGOING":
         return "Project approved and active"
+      case "APPROVED":
+        return "Project approved - ready to start"
       case "COMPLETED":
         return "Project completed"
       case "OVERDUE":
@@ -165,6 +167,8 @@ export function LabComponentsRequest({ onBackToManagement }: LabComponentsReques
       case "PENDING":
         return "text-yellow-600"
       case "ONGOING":
+        return "text-green-600"
+      case "APPROVED":
         return "text-green-600"
       case "COMPLETED":
         return "text-blue-600"
@@ -357,13 +361,13 @@ export function LabComponentsRequest({ onBackToManagement }: LabComponentsReques
   const hasApprovedProject = (component: LabComponent) => {
     return component.projects?.some(compProject => {
       const fullProject = projects.find(p => p.id === compProject.id)
-      return fullProject?.status === "ONGOING"
+      return fullProject?.status === "ONGOING" || fullProject?.status === "APPROVED"
     })
   }
 
   // Get components linked to faculty's approved projects
   const getFacultyLinkedComponents = () => {
-    const approvedProjects = projects.filter(project => project.status === "ONGOING")
+    const approvedProjects = projects.filter(project => project.status === "ONGOING" || project.status === "APPROVED")
     const linkedComponentIds = new Set<string>()
     
     approvedProjects.forEach(project => {
@@ -781,12 +785,12 @@ export function LabComponentsRequest({ onBackToManagement }: LabComponentsReques
                                                   <SelectItem
                                                     key={componentProject.id}
                                                     value={componentProject.id}
-                                                    className={fullProject?.status !== "ONGOING" ? "opacity-50" : ""}
+                                                    className={fullProject?.status !== "ONGOING" && fullProject?.status !== "APPROVED" ? "opacity-50" : ""}
                                                   >
                                                     <div className="flex flex-col">
                                                       <div className="flex items-center gap-2">
                                                         <span>{componentProject.name}</span>
-                                                        {fullProject?.status === "ONGOING" && (
+                                                        {(fullProject?.status === "ONGOING" || fullProject?.status === "APPROVED") && (
                                                           <Badge variant="outline" className="text-xs text-green-600 border-green-600">
                                                             Available
                                                           </Badge>

@@ -129,7 +129,7 @@ export default function FacultyOpportunity() {
 
   return (
     <div className="w-full p-4">
-      <h2 className="text-2xl font-bold mb-4">Faculty Opportunity Management</h2>
+      <h2 className="faculty-page-title">Faculty Opportunity Management</h2>
       <div className="flex flex-col md:flex-row md:items-center md:gap-4 gap-2 mb-6">
         <div className="relative max-w-xs w-full">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -247,7 +247,7 @@ export default function FacultyOpportunity() {
                                           className="w-full max-w-[140px]"
                                         >
                                           <a
-                                            href={`https://utfs.io/f/${app.resumePath}`}
+                                            href={app.resumePath.startsWith('http') ? app.resumePath : app.resumePath.includes('-') ? `/api/files/resumes/${app.resumePath}?userId=${user?.id}` : `https://utfs.io/f/${app.resumePath}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                           >

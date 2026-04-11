@@ -248,6 +248,17 @@ export function ProjectManagement() {
     expected_completion_date: "",
   });
 
+  // reset or initialise date/time whenever add dialog opens
+  useEffect(() => {
+    if (isAddDialogOpen) {
+      const defaultDate = new Date().toISOString().slice(0,16); // YYYY-MM-DDTHH:MM
+      setNewProject((prev) => ({
+        ...prev,
+        expected_completion_date: prev.expected_completion_date || defaultDate,
+      }));
+    }
+  }, [isAddDialogOpen]);
+
   useEffect(() => {
     fetchData();
     checkCoordinatorStatus();
@@ -345,11 +356,9 @@ export function ProjectManagement() {
     console.log("Form data:", newProject);
     console.log("User email:", user?.email);
 
-    if (!newProject.name || !newProject.expected_completion_date) {
-      console.log("Validation failed:", {
-        name: !!newProject.name,
-        expected_completion_date: !!newProject.expected_completion_date,
-      });
+    // if the user somehow managed to submit without a due date/time (e.g. picker not working)
+    // fall back to current timestamp so the project can still be created.
+    if (!newProject.name) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -358,6 +367,16 @@ export function ProjectManagement() {
       return;
     }
 
+    let submissionProject = { ...newProject };
+    if (!submissionProject.expected_completion_date) {
+      submissionProject.expected_completion_date = new Date()
+        .toISOString()
+        .slice(0, 16); // ensure a datetime-local compliant fallback
+    }
+
+    // use submissionProject for the POST body
+
+
     try {
       const response = await fetch("/api/projects", {
         method: "POST",
@@ -365,7 +384,7 @@ export function ProjectManagement() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ...newProject,
+          ...submissionProject,
           course_id: null,
           user_email: user?.email,
           type: "FACULTY_ASSIGNED",
@@ -531,11 +550,17 @@ export function ProjectManagement() {
     }
   };
 
-  const handleDeleteProject = async () => {
-    if (!projectToDelete) return;
+  const handleDeleteProject = async (projectId?: string) => {
+    // if caller provided an id, update the state for deletion
+    if (projectId) {
+      setProjectToDelete({ id: projectId } as Project);
+    }
+    if (!projectToDelete && !projectId) return;
+
+    const idToUse = projectId || projectToDelete?.id;
 
     try {
-      const response = await fetch(`/api/projects?id=${projectToDelete.id}`, {
+      const response = await fetch(`/api/projects?id=${idToUse}`, {
         method: "DELETE",
         headers: {
           "x-user-id": user?.id || "",
@@ -544,7 +569,7 @@ export function ProjectManagement() {
 
       if (response.ok) {
         setProjects((prev) =>
-          prev.filter((project) => project.id !== projectToDelete.id)
+          prev.filter((project) => project.id !== projectToDelete?.id)
         );
         toast({
           title: "Success",
@@ -1276,6 +1301,7 @@ Rank candidates by overall suitability score (0.0 to 1.0) and provide detailed r
                         expected_completion_date: e.target.value,
                       })
                     }
+                    required
                   />
                 </div>
               </div>
@@ -1945,7 +1971,7 @@ Rank candidates by overall suitability score (0.0 to 1.0) and provide detailed r
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteProject}
+              onClick={() => handleDeleteProject()}
               className="bg-red-600 hover:bg-red-700"
             >
               Delete Project
@@ -2175,7 +2201,7 @@ Rank candidates by overall suitability score (0.0 to 1.0) and provide detailed r
                                     href={`/${candidate.file_path.replace(
                                       /^.*[\\\/]public[\\\/]/,
                                       ""
-                                    )}`}
+                                    )}?userId=${user?.id}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-blue-600 hover:text-blue-800 underline text-sm flex items-center"
@@ -2328,7 +2354,7 @@ Rank candidates by overall suitability score (0.0 to 1.0) and provide detailed r
                           <td className="px-4 py-3">
                             {application.resume_path ? (
                               <a
-                                href={application.resume_path === 'Uploadthing' ? `https://utfs.io/f/${application.resume_id}` : `/api/files/${application.resume_path}/${application.resume_id}`}
+                                href={application.resume_path === 'Uploadthing' ? `https://utfs.io/f/${application.resume_id}` : `/api/files/${application.resume_path}/${application.resume_id}?userId=${user?.id}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-blue-600 hover:text-blue-800 underline text-sm flex items-center"
@@ -2496,7 +2522,7 @@ Rank candidates by overall suitability score (0.0 to 1.0) and provide detailed r
                                   href={`/${safeCandidate.file_path.replace(
                                     /^.*[\\\/]public[\\\/]/,
                                     ""
-                                  )}`}
+                                  )}?userId=${user?.id}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-blue-600 hover:text-blue-800 underline text-sm"
@@ -2784,7 +2810,7 @@ Rank candidates by overall suitability score (0.0 to 1.0) and provide detailed r
                 href={`/${selectedCandidateDetails.file_path.replace(
                   /^.*[\\\/]public[\\\/]/,
                   ""
-                )}`}
+                )}?userId=${user?.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center text-blue-600 hover:text-blue-800 underline mt-2"

@@ -151,7 +151,7 @@ export default function StudentOpportunity() {
 
   return (
     <div>
-      <h2 className="text-3xl font-bold mb-6">Student Opportunities</h2>
+      <h2 className="admin-page-title">Student Opportunities</h2>
       <div className="flex flex-col md:flex-row md:items-center md:gap-4 gap-2 mb-6">
         <div className="relative max-w-xs w-full">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />

@@ -50,6 +50,11 @@ interface Course {
   modified_by?: string
   modified_date: string
   course_units: CourseUnit[]
+  enrollments: Array<{
+    id: string
+    student_id: string
+    status: string
+  }>
   creator?: {
     id: string
     name: string
@@ -75,6 +80,10 @@ export function ViewCourses() {
   const [courseFeedbacks, setCourseFeedbacks] = useState<any[]>([])
   const [allSuggestions, setAllSuggestions] = useState<any[]>([])
   const [isFeedbacksLoading, setIsFeedbacksLoading] = useState(false)
+  const [isSignUpDialogOpen, setIsSignUpDialogOpen] = useState(false)
+  const [signUpCourse, setSignUpCourse] = useState<Course | null>(null)
+  const [studentNotes, setStudentNotes] = useState("")
+  const [isSigningUp, setIsSigningUp] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -101,33 +110,51 @@ export function ViewCourses() {
   }
 
   const isEnrolled = (course: Course) => {
-    return user && course.course_enrollments.includes(user.id)
+    return user && course.enrollments?.some(e => e.student_id === user.id && e.status === "ACCEPTED")
   }
 
-  const handleSignUp = async (courseId: string) => {
-    if (!user) {
+  const getEnrollmentStatus = (course: Course) => {
+    if (!user) return null
+    return course.enrollments?.find(e => e.student_id === user.id)?.status || null
+  }
+
+  const handleSignUp = async () => {
+    if (!user || !signUpCourse) return
+
+    if (!studentNotes.trim()) {
       toast({
         title: "Error",
-        description: "You must be logged in to sign up for courses",
+        description: "Please provide registration details",
         variant: "destructive",
       })
       return
     }
+
     try {
+      setIsSigningUp(true)
       const response = await fetch(`/api/courses`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           "x-user-id": user.id,
         },
-        body: JSON.stringify({ courseId, action: "enroll" }),
+        body: JSON.stringify({ 
+          courseId: signUpCourse.id, 
+          action: "enroll",
+          student_notes: studentNotes
+        }),
       })
       if (response.ok) {
-        toast({ title: "Success", description: "Enrolled in course!" })
+        toast({ 
+          title: "Application Submitted", 
+          description: "Your application is pending review by faculty/admin." 
+        })
+        setIsSignUpDialogOpen(false)
+        setStudentNotes("")
         fetchData()
       } else {
         const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to enroll")
+        throw new Error(errorData.error || "Failed to submit application")
       }
     } catch (error) {
       toast({
@@ -135,7 +162,16 @@ export function ViewCourses() {
         description: error instanceof Error ? error.message : "Failed to enroll in course",
         variant: "destructive",
       })
+    } finally {
+      setIsSigningUp(false)
     }
+  }
+
+  const openSignUpDialog = (course: Course, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setSignUpCourse(course)
+    setStudentNotes("")
+    setIsSignUpDialogOpen(true)
   }
 
   const openUnitsSheet = (course: Course) => {
@@ -255,10 +291,15 @@ export function ViewCourses() {
     const start = new Date(course.course_start_date);
     const end = new Date(course.course_end_date);
     const enrolled = isEnrolled(course);
+    const status = getEnrollmentStatus(course);
 
     if (enrolled) {
       if (now > end) return { label: "Completed", color: "bg-green-500" };
       return { label: "Ongoing", color: "bg-orange-500" };
+    } else if (status === "PENDING") {
+      return { label: "Pending Approval", color: "bg-yellow-500" };
+    } else if (status === "REJECTED") {
+      return { label: "Rejected", color: "bg-red-500" };
     } else {
       if (now > end) return { label: "Ended", color: "bg-red-500" };
       return { label: "Available", color: "bg-blue-500" };
@@ -291,8 +332,8 @@ export function ViewCourses() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Available Courses</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">Browse and sign up for available courses</p>
+          <h1 className="admin-page-title">Available Courses</h1>
+          <p className="text-gray-600 mt-2">Browse and sign up for available courses</p>
         </div>
         <div className="flex items-center space-x-2">
           <Button onClick={fetchData} variant="outline">
@@ -413,17 +454,19 @@ export function ViewCourses() {
                   <div className="flex items-center justify-between mt-4">
                     <span className="text-xs text-gray-500">Created by: {course.creator?.name || course.created_by}</span>
                     <div className="flex space-x-2">
-                      {!enrolled && getCourseStatus(course).label === "Available" && (
+                      {!getEnrollmentStatus(course) && getCourseStatus(course).label === "Available" && (
                         <Button 
                           size="sm" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSignUp(course.id);
-                          }}
+                          onClick={(e) => openSignUpDialog(course, e)}
                         >
                           <UserPlus className="h-4 w-4 md:mr-1" />
                           <span className="hidden md:inline">Sign Up</span>
                         </Button>
+                      )}
+                      {getEnrollmentStatus(course) === "PENDING" && (
+                        <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                          Pending Approval
+                        </Badge>
                       )}
                     </div>
                   </div>
@@ -674,6 +717,54 @@ export function ViewCourses() {
           <DialogFooter className="mt-8 pt-4 border-t border-slate-100">
             <Button variant="outline" onClick={() => setIsFeedbackDialogOpen(false)} className="px-8">
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Course Sign Up Registration Dialog */}
+      <Dialog open={isSignUpDialogOpen} onOpenChange={setIsSignUpDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-blue-600" />
+              Course Registration
+            </DialogTitle>
+            <DialogDescription>
+              Please provide details about why you want to join <span className="font-bold text-blue-600">{signUpCourse?.course_name}</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="registration-details" className="text-sm font-semibold text-gray-700">
+                Registration Details / Statement of Purpose
+              </Label>
+              <Textarea
+                id="registration-details"
+                placeholder="Briefly describe your background or interest in this course..."
+                value={studentNotes}
+                onChange={(e) => setStudentNotes(e.target.value)}
+                rows={5}
+                className="resize-none"
+              />
+              <p className="text-[10px] text-gray-500 italic">
+                * Your application will be reviewed by the course faculty or an administrator.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsSignUpDialogOpen(false)} disabled={isSigningUp}>
+              Cancel
+            </Button>
+            <Button onClick={handleSignUp} disabled={isSigningUp || !studentNotes.trim()}>
+              {isSigningUp ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                  Submitting...
+                </>
+              ) : (
+                "Submit Application"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

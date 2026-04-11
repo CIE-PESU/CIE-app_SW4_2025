@@ -297,6 +297,19 @@ body {
   color: #fff;
 }
 
+.faculty-page-title-global {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1a202c;
+  margin-bottom: 1.5rem;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  font-family: 'Cobert Regular', Arial, sans-serif;
+}
+.dark .faculty-page-title-global {
+  color: #fff;
+}
+
 
 
 
@@ -335,16 +348,16 @@ body {
 }
 
 .student-card {
-  background: #dff9ff;
+  background: #ffffff;
   border: 1px solid #e5e7eb; /* gray-200 */
   border-radius: 0.75rem;     /* rounded-xl */
   box-shadow: 0 2px 8px 0 rgba(16,30,54,0.04);
   padding: 1.5rem;
   transition: box-shadow 0.2s;
 }
-.student-card:hover, .admin-card:focus-within {
+.student-card:hover, .student-card:focus-within {
   box-shadow: 0 4px 16px 0 rgba(16,30,54,0.08);
-  background-color: #dff9ff;
+  background-color: #e3f0ff;
 }
 .dark .student-card:not(.bg-green-50):not(.dark\:bg-green-50) {
   background: #283042;

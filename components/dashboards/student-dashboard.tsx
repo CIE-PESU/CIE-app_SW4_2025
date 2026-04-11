@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
-import { Home, User as UserIcon, MapPin, Calendar, BookOpen, FolderOpen, ClipboardCheck, Wrench, Moon, Sun, History, Briefcase } from "lucide-react"
+import { Home, User as UserIcon, MapPin, Calendar, BookOpen, FolderOpen, ClipboardCheck, Wrench, Moon, Sun, History, Briefcase, GraduationCap } from "lucide-react"
 import { StudentHome } from "@/components/pages/student/student-home"
 import { StudentCalendar } from "@/components/pages/student/student-calendar"
 import { LabComponentsRequest } from "@/components/pages/student/lab-components-request"
@@ -13,6 +13,7 @@ import { UserProfile } from "@/components/common/user-profile"
 import { LibraryDashboard } from "@/components/pages/common/library-dashboard"
 import { StudentRequestHistory } from "@/components/pages/student/request-history"
 import StudentOpportunity from '@/components/pages/student/student-opportunity';
+import { ViewPrograms } from "@/components/pages/student/view-programs";
 import { NotificationsPage } from "@/components/pages/common/notifications-page"
 
 const menuItems = [
@@ -20,6 +21,7 @@ const menuItems = [
   { id: "calendar", label: "Calendar", icon: Calendar },
   { id: "courses", label: "Courses", icon: BookOpen },
   { id: "projects", label: "Projects", icon: FolderOpen },
+  { id: "programs", label: "Programs", icon: GraduationCap },
   { id: "lab-components", label: "Lab Components", icon: Wrench },
   { id: "library", label: "Library", icon: BookOpen },
   { id: "opportunities", label: "Opportunities", icon: Briefcase },
@@ -49,6 +51,8 @@ export function StudentDashboard() {
         return <ViewCourses />
       case "projects":
         return <ViewProjects />
+      case "programs":
+        return <ViewPrograms />
       case "attendance":
         return <ViewAttendance />
       case "lab-components":

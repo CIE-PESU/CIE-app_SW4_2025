@@ -5,6 +5,7 @@ import { exec } from "child_process"
 import { promisify } from "util"
 import path from "path"
 import fs from "fs/promises"
+import { readEncryptedFile } from "@/lib/storage"
 
 const execAsync = promisify(exec)
 
@@ -67,15 +68,47 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Check if resumes folder exists
+    // Check if resumes folder exists and prepare it
     const resumesFolder = path.join(process.cwd(), "public", "project-applications", project_id)
     
     try {
-      await fs.access(resumesFolder)
+      // Create project-specific directory if it doesn't exist
+      await fs.mkdir(resumesFolder, { recursive: true })
+      
+      console.log(`Preparing resumes for project ${project_id}...`)
+      
+      // Collect and decrypt resumes for all pending applications
+      for (const req of (project.project_requests as any[])) {
+        if (req.resume_id && req.resume_path) {
+          try {
+            const fileName = req.resume_id
+            const subDir = req.resume_path
+            const destPath = path.join(resumesFolder, fileName)
+            
+            // Only decrypt if it doesn't already exist or we want to refresh
+            // For AI shortlisting, it's safer to always ensure fresh decrypted files
+            const decryptedBuffer = await readEncryptedFile(fileName, subDir)
+            await fs.writeFile(destPath, decryptedBuffer)
+            console.log(`Decrypted and saved resume: ${fileName} to ${resumesFolder}`)
+          } catch (error) {
+            console.error(`Failed to decrypt resume for request ${req.id}:`, error)
+            // Continue with other resumes
+          }
+        }
+      }
+
+      // Final check to see if we actually have files to process
+      const files = await fs.readdir(resumesFolder)
+      if (files.length === 0) {
+        return NextResponse.json({ 
+          error: "No resumes could be prepared for analysis. Please ensure applicants have uploaded resumes." 
+        }, { status: 400 })
+      }
     } catch (error) {
+      console.error("Error preparing resumes folder:", error)
       return NextResponse.json({ 
-        error: "No resumes found for this project" 
-      }, { status: 400 })
+        error: "Failed to prepare resumes for AI analysis" 
+      }, { status: 500 })
     }
 
     // Prepare project description for the selector
@@ -267,7 +300,7 @@ if __name__ == "__main__":
       const shortlistedCandidates = []
       for (const candidate of result.candidates) {
         // Find the corresponding project request
-        const projectRequest = project.project_requests.find(req => 
+        const projectRequest = (project.project_requests as any[]).find((req: any) => 
           req.resume_path && req.resume_path.includes(candidate.file_name)
         )
 

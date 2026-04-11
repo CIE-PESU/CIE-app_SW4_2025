@@ -15,7 +15,14 @@ export async function GET(
 ) {
   try {
     // 1. Auth check
-    const userId = request.headers.get("x-user-id");
+    let userId = request.headers.get("x-user-id");
+    
+    // Fallback to query parameter if header is missing (e.g., for direct browser links)
+    if (!userId) {
+      const { searchParams } = new URL(request.url);
+      userId = searchParams.get("userId");
+    }
+
     if (!userId) {
       return new NextResponse("Unauthorized", { status: 401 });
     }

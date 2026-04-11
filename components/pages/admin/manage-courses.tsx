@@ -50,6 +50,11 @@ interface Course {
   modified_by?: string
   modified_date: string
   course_units: CourseUnit[]
+  enrollments: Array<{
+    id: string
+    student_id: string
+    status: string
+  }>
   creator?: {
     id: string
     name: string
@@ -135,6 +140,9 @@ export function ManageCourses({ facultyOnly }: ManageCoursesProps) {
   const [isFeedbacksLoading, setIsFeedbacksLoading] = useState(false)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [aiAnalysis, setAiAnalysis] = useState<any>(null)
+  const [isApplicantSheetOpen, setIsApplicantSheetOpen] = useState(false)
+  const [applicants, setApplicants] = useState<any[]>([])
+  const [isApplicantsLoading, setIsApplicantsLoading] = useState(false)
   const { toast } = useToast()
   const { user } = useAuth()
 
@@ -224,10 +232,10 @@ export function ManageCourses({ facultyOnly }: ManageCoursesProps) {
       return
     }
 
-    // Validate course units
-    const validUnits = courseUnits.filter(unit => 
-      unit.unit_name.trim() !== "" && unit.unit_description.trim() !== ""
-    )
+    // Validate course units (only name is strictly required for the unit to be kept)
+    const validUnits = courseUnits
+      .filter(unit => unit.unit_name.trim() !== "")
+      .map((unit, index) => ({ ...unit, unit_number: index + 1 }))
 
     if (validUnits.length === 0) {
       toast({
@@ -435,6 +443,70 @@ export function ManageCourses({ facultyOnly }: ManageCoursesProps) {
     }
   }
 
+  const fetchApplicants = async (courseId: string) => {
+    try {
+      setIsApplicantsLoading(true)
+      const response = await fetch(`/api/courses/enrollments?courseId=${courseId}`, {
+        headers: {
+          "x-user-id": user?.id || "",
+        },
+      })
+      const data = await response.json()
+      if (response.ok) {
+        setApplicants(data.enrollments || [])
+      } else {
+        throw new Error(data.error || "Failed to fetch applicants")
+      }
+    } catch (error) {
+      console.error("Error fetching applicants:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load applicant data",
+        variant: "destructive",
+      })
+    } finally {
+      setIsApplicantsLoading(false)
+    }
+  }
+
+  const openApplicantSheet = (course: Course, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setSelectedCourse(course)
+    setIsApplicantSheetOpen(true)
+    fetchApplicants(course.id)
+  }
+
+  const handleUpdateEnrollmentStatus = async (enrollmentId: string, status: string) => {
+    try {
+      const response = await fetch("/api/courses/enrollments", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": user?.id || "",
+        },
+        body: JSON.stringify({ enrollmentId, status }),
+      })
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: `Enrollment ${status.toLowerCase()} successfully`,
+        })
+        if (selectedCourse) fetchApplicants(selectedCourse.id)
+        fetchCourses() // Refresh course counts
+      } else {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to update status")
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update status",
+        variant: "destructive",
+      })
+    }
+  }
+
   const openEditDialog = (course: Course) => {
     setEditCourse(course)
     setEditCourseUnits(course.course_units.map(unit => ({ ...unit })))
@@ -453,7 +525,10 @@ export function ManageCourses({ facultyOnly }: ManageCoursesProps) {
       toast({ title: "Error", description: "End date must be after start date", variant: "destructive" })
       return
     }
-    const validUnits = editCourseUnits.filter(unit => unit.unit_name.trim() !== "" && unit.unit_description.trim() !== "")
+    const validUnits = editCourseUnits
+      .filter(unit => unit.unit_name.trim() !== "")
+      .map((unit, index) => ({ ...unit, unit_number: index + 1 }))
+      
     if (validUnits.length === 0) {
       toast({ title: "Error", description: "Please add at least one course unit", variant: "destructive" })
       return
@@ -508,7 +583,7 @@ export function ManageCourses({ facultyOnly }: ManageCoursesProps) {
 
     // Check if at least one valid course unit exists
     const validUnits = courseUnits.filter(unit => 
-      unit.unit_name?.trim() && unit.unit_description?.trim()
+      unit.unit_name?.trim()
     )
     const unitsValid = validUnits.length > 0
 
@@ -541,7 +616,7 @@ export function ManageCourses({ facultyOnly }: ManageCoursesProps) {
 
     // Check if at least one valid course unit exists
     const validUnits = editCourseUnits.filter(unit => 
-      unit.unit_name?.trim() && unit.unit_description?.trim()
+      unit.unit_name?.trim()
     )
     const unitsValid = validUnits.length > 0
 
@@ -870,6 +945,20 @@ export function ManageCourses({ facultyOnly }: ManageCoursesProps) {
                       </Button>
                     </div>
                     <div className="flex space-x-2">
+                      <Button 
+                        size="sm" 
+                        variant="primary"
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                        onClick={(e) => openApplicantSheet(course, e)}
+                      >
+                        <Users className="h-4 w-4 md:mr-1" />
+                        <span className="hidden md:inline">Manage Applicants</span>
+                        {course.enrollments?.filter((e: any) => e.status === "PENDING").length > 0 && (
+                          <Badge className="ml-2 bg-white text-blue-600 border-0 h-5 w-5 p-0 flex items-center justify-center rounded-full text-[10px]">
+                            {course.enrollments?.filter((e: any) => e.status === "PENDING").length}
+                          </Badge>
+                        )}
+                      </Button>
                       <Button 
                         size="sm" 
                         variant="outline"
@@ -1301,6 +1390,107 @@ export function ManageCourses({ facultyOnly }: ManageCoursesProps) {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Course Applicants Sheet */}
+      <Sheet open={isApplicantSheetOpen} onOpenChange={setIsApplicantSheetOpen}>
+        <SheetContent className="sm:max-w-[600px] w-full flex flex-col">
+          <SheetHeader className="pb-4 border-b">
+            <SheetTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-blue-600" />
+              Course Applicants
+            </SheetTitle>
+            <SheetDescription>
+              Manage enrollment requests for {selectedCourse?.course_name}
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="flex-1 overflow-y-auto pt-6 space-y-6">
+            {isApplicantsLoading ? (
+              <div className="flex justify-center p-12">
+                <RefreshCw className="h-8 w-8 animate-spin text-gray-300" />
+              </div>
+            ) : applicants.length === 0 ? (
+              <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+                <Users className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500 font-medium">No application records found</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Pending List First */}
+                <div className="space-y-3">
+                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                    Pending Review
+                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-700 h-5">
+                      {applicants.filter(a => a.status === "PENDING").length}
+                    </Badge>
+                  </h3>
+                  {applicants.filter(a => a.status === "PENDING").length === 0 && (
+                    <p className="text-sm text-gray-400 italic pl-2">No pending applications</p>
+                  )}
+                  {applicants.filter(a => a.status === "PENDING").map((app) => (
+                    <Card key={app.id} className="border-yellow-100 bg-yellow-50/10 active:scale-[0.99] transition-transform">
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <p className="font-bold text-gray-900">{app.student.user.name}</p>
+                            <p className="text-xs text-gray-500">{app.student.user.email}</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              className="bg-green-600 hover:bg-green-700 h-8"
+                              onClick={() => handleUpdateEnrollmentStatus(app.id, "ACCEPTED")}
+                            >
+                              Approve
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              className="border-red-200 text-red-600 hover:bg-red-50 h-8"
+                              onClick={() => handleUpdateEnrollmentStatus(app.id, "REJECTED")}
+                            >
+                              Reject
+                            </Button>
+                          </div>
+                        </div>
+                        {app.student_notes && (
+                          <div className="bg-white p-3 rounded-lg border border-yellow-100 text-sm italic text-gray-600">
+                            "{app.student_notes}"
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Accepted List */}
+                <div className="space-y-3 pt-6">
+                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                    Enrolled Students
+                    <Badge variant="secondary" className="bg-green-100 text-green-700 h-5">
+                      {applicants.filter(a => a.status === "ACCEPTED").length}
+                    </Badge>
+                  </h3>
+                  {applicants.filter(a => a.status === "ACCEPTED").map((app) => (
+                    <div key={app.id} className="flex items-center justify-between p-3 bg-white border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-green-100 text-green-700 flex items-center justify-center font-bold text-xs">
+                          {app.student.user.name.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold">{app.student.user.name}</p>
+                          <p className="text-[10px] text-gray-500">{app.student.user.email}</p>
+                        </div>
+                      </div>
+                      <Badge className="bg-green-50 text-green-700 border-green-200 font-medium">ACCEPTED</Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

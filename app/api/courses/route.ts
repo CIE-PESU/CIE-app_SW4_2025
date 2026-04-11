@@ -230,34 +230,48 @@ export async function PUT(request: NextRequest) {
     }
 
     const data = await request.json()
-    const { courseId, action } = data
+    const { courseId, action, student_notes } = data
     if (!courseId || action !== "enroll") {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 })
     }
 
+    if (!student_notes || student_notes.trim().length < 1) {
+      return NextResponse.json({ error: "Registration details are required" }, { status: 400 })
+    }
+
     // Find the course
-    const course = await prisma.course.findUnique({ where: { id: courseId } })
+    const course = await prisma.course.findUnique({ 
+      where: { id: courseId },
+      include: { enrollments: true }
+    })
+    
     if (!course) {
       return NextResponse.json({ error: "Course not found" }, { status: 404 })
     }
 
-    // Check if already enrolled
-    if (course.course_enrollments.includes(userId)) {
-      return NextResponse.json({ error: "Already enrolled in this course" }, { status: 400 })
+    // Check if already applied or enrolled
+    const existingEnrollment = course.enrollments.find(e => e.student_id === userId)
+    if (existingEnrollment) {
+      if (existingEnrollment.status === "ACCEPTED") {
+        return NextResponse.json({ error: "Already enrolled in this course" }, { status: 400 })
+      }
+      return NextResponse.json({ error: "Your application is already pending review" }, { status: 400 })
     }
 
-    // Add user to course_enrollments
-    const updatedCourse = await prisma.course.update({
-      where: { id: courseId },
+    // Create a pending enrollment record
+    const enrollment = await prisma.enrollment.create({
       data: {
-        course_enrollments: {
-          set: [...course.course_enrollments, userId]
-        },
-        modified_by: userId,
-      },
+        course_id: courseId,
+        student_id: userId,
+        status: "PENDING",
+        student_notes: student_notes,
+      }
     })
 
-    return NextResponse.json({ course: updatedCourse })
+    return NextResponse.json({ 
+      message: "Application submitted successfully. Awaiting approval.",
+      enrollment 
+    })
   } catch (error) {
     console.error("Enroll in course error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

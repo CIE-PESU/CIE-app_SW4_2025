@@ -142,11 +142,10 @@ export async function GET(request: NextRequest) {
       }, { status: 403 })
     }
 
-    // Fetch all pending faculty projects
+    // Fetch all pending projects (both faculty-assigned and student-proposed)
     const pendingProjects = await prisma.project.findMany({
       where: {
         status: "PENDING",
-        type: "FACULTY_ASSIGNED"
       },
       include: {
         submissions: true,
@@ -208,6 +207,19 @@ export async function GET(request: NextRequest) {
             return {
               ...project,
               faculty_creator: faculty,
+              components_needed_details,
+            }
+          }
+        } else if (project.type === "STUDENT_PROPOSED" && project.created_by) {
+          // Find the student/user who created this project
+          const creatorUser = await prisma.user.findUnique({
+            where: { id: project.created_by },
+            select: { name: true, email: true },
+          })
+          if (creatorUser) {
+            return {
+              ...project,
+              faculty_creator: { user: creatorUser },
               components_needed_details,
             }
           }

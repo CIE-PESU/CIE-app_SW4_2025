@@ -471,7 +471,7 @@ export function ManageLocations() {
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-4">
         <div>
-          <h1 className="text-3xl font-bold">Manage Room Bookings</h1>
+          <h1 className="admin-page-title">Manage Room Bookings</h1>
         </div>
         <div className="flex gap-4">
           <button className="btn-edit" onClick={() => setEditMode(e => !e)}>
